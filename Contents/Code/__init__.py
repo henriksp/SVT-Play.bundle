@@ -21,28 +21,26 @@ def Start():
     VideoItem.thumb = R(THUMB)
     WebVideoItem.thumb = R(THUMB)
 
-    cerealizer.register(ShowInfo)
-    cerealizer.register(EpisodeInfo)
     cerealizer.register(CategoryInfo)
 
-    Thread.Create(ReindexShows)
+    #Thread.Create(ReindexShows)
     Log("Quality Setting: %s" % Prefs[PREF_QUALITY])
 
 # Menu builder methods
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def MainMenu():
-    menu = MediaContainer(viewGroup="List", title1= TEXT_TITLE + " " + VERSION)
-    menu.Append(Function(DirectoryItem(GetIndexShows, title=TEXT_INDEX_SHOWS, thumb=R('main_index.png'))))
-    menu.Append(Function(DirectoryItem(GetRecommendedShows, title=TEXT_RECOMMENDED_SHOWS,
-        thumb=R('main_rekommenderat.png'))))
+    menu = ObjectContainer(view_group="List", title1= TEXT_TITLE + " " + VERSION)
+    menu.add(DirectoryObject(key=Callback(GetIndexShows), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
+    #menu.Append(Function(DirectoryItem(GetRecommendedShows, title=TEXT_RECOMMENDED_SHOWS,
+        #thumb=R('main_rekommenderat.png'))))
     #menu.Append(WebVideoItem(url="http://svtplay.se/t/102782/mitt_i_naturen", title="PauseTest"))
-    menu.Append(Function(DirectoryItem(GetLatestNews, title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png'))))
-    menu.Append(Function(DirectoryItem(GetLatestClips, title=TEXT_LATEST_CLIPS, thumb=R('main_senaste_klipp.png'))))
-    menu.Append(Function(DirectoryItem(GetLatestShows, title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png'))))
-    menu.Append(Function(DirectoryItem(GetMostViewed, title=TEXT_MOST_VIEWED, thumb=R('main_mest_sedda.png'))))
-    menu.Append(Function(DirectoryItem(GetCategories, title=TEXT_CATEGORIES, thumb=R('main_kategori.png'))))
-    menu.Append(Function(DirectoryItem(ListLiveMenu, title=TEXT_LIVE_SHOWS, thumb=R('main_live.png'))))
-    menu.Append(PrefsItem(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
+    #menu.Append(Function(DirectoryItem(GetLatestNews, title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png'))))
+    #menu.Append(Function(DirectoryItem(GetLatestClips, title=TEXT_LATEST_CLIPS, thumb=R('main_senaste_klipp.png'))))
+    #menu.Append(Function(DirectoryItem(GetLatestShows, title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png'))))
+    #menu.Append(Function(DirectoryItem(GetMostViewed, title=TEXT_MOST_VIEWED, thumb=R('main_mest_sedda.png'))))
+    #menu.Append(Function(DirectoryItem(GetCategories, title=TEXT_CATEGORIES, thumb=R('main_kategori.png'))))
+    #menu.Append(Function(DirectoryItem(ListLiveMenu, title=TEXT_LIVE_SHOWS, thumb=R('main_live.png'))))
+    #menu.Append(PrefsItem(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
     return menu
 
 

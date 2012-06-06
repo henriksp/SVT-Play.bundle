@@ -6,8 +6,8 @@ VERSION="3.1"
 PLUGIN_PREFIX	= "/video/svt"
 
 #URLs
-URL_SITE = "http://svtplay.se"
-URL_INDEX = URL_SITE + "/alfabetisk"
+URL_SITE = "http://www.svtplay.se"
+URL_INDEX = URL_SITE + "/program"
 URL_INDEX_THUMB_PAGINATE = "?am,,%d,thumbs"
 URL_INDEX_THUMB = URL_INDEX + URL_INDEX_THUMB_PAGINATE
 URL_PLEX_PLAYER = "http://www.plexapp.com/player/player.php?&url="
@@ -79,79 +79,17 @@ PREF_PAGINATE_DEPTH = 'paginate_depth'
 #random stuff
 TAG_DIV_ID = "//div[@id='%s']" 
 
-def PlayVideo(sender, url):
-    Log("Request to play video: %s" % url)
-    return Redirect(WebVideoItem(url))
-    
-
-def FindPaginateUrl(url, divId):
+def GetPaginateUrls(url, dataname="pr"):
     pageElement = HTML.ElementFromURL(url)
-    #Pick the first a href after the pagination div tag and treat it as the base link
-    xbasepath = "(//div[@id='%s']//div[@class='pagination']//a)[1]/@href" % divId
-    paginateUrl = pageElement.xpath(xbasepath)[0]
-    #Replace the index number in the url to a %d so that we can easily loop over all the pages
-    p2 = string.split(paginateUrl, ',')
-    p2[len(p2) - 3] = "%d"
-    paginateUrl =  string.join(p2, ',')
-    return paginateUrl
+    xpath = "//div[@class='svtXClearFix']//ul[@data-name='%s']//@data-lastpage" % dataname
+    noPages = int(pageElement.xpath(xpath)[0])
+    urls = []
+    args = "?%s=%d"
+    for i in range(1, noPages + 1):
+        suburl = url + args % (dataname, i)
+        urls.append(suburl)
+        Log(suburl)
+    return urls
 
-def GetPaginatePages(url, divId, paginateUrl = None, maxPaginateDepth = MAX_PAGINATE_PAGES):
-    requestUrl = url
-    if(paginateUrl == None):
-        paginateUrl = FindPaginateUrl(url, divId)
-    else: #ugly special case for the alphabetic thumbs thing
-        requestUrl = url + (paginateUrl % 1)
-
-    pageElement = HTML.ElementFromURL(requestUrl)
-    xpathBase = TAG_DIV_ID  % divId 
-    paginationLinks = pageElement.xpath(xpathBase + "//div[@class='pagination']//li[@class='']/a")
-    start = 1
-    linkPages = len(paginationLinks)
-    if(linkPages > 0): 
-        stop = int(paginationLinks[linkPages-1].text)
-        stop = min(stop, maxPaginateDepth)
-    else:
-        stop = 1
-
-    Log("Start: %s, Stop: %s" % (start, stop))
-
-    paginatePages = []
-    for i in range(start, stop + 1):
-        nextUrl = url + paginateUrl % i
-        paginatePages.append(nextUrl)
-    
-    for newUrl in paginatePages:
-        Log(newUrl)
-        HTTP.PreCache(newUrl)
-    
-    return paginatePages
-
-
-def GetUrlArgs(url):
-    args = string.split(url, '&')
-    d = dict()
-    for arg in args:
-        a = string.split(arg, '=')
-        if(len(a) > 1):
-           d[a[0]] = a[1]
-    return d
-
-# Replaces all running whitespace characters with a single space
-def strip_all(str):
-    return string.join(string.split(str), ' ')
- 
-class MoreInfoPopup:
-    def __init__(self, pageElement):
-        self.pageElement = pageElement
-        self.xbasepath = "//div[@id='wrapper']//p[%d]/text()"
-    def EpisodeInfo(self):
-        episodeInfo = self.pageElement.xpath(self.xbasepath % 1)
-        if(len(episodeInfo) > 0):
-            return episodeInfo[0]
-        return None
-
-    def ShowInfo(self):
-        showInfo = self.pageElement.xpath(self.xbasepath % 2)
-        if(len(showInfo) > 0):
-            return showInfo[0]
-        return None
+def PlayVideo():
+    return None

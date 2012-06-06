@@ -4,16 +4,46 @@ import re
 import string
 from common import *
 
-class ShowInfo:
-    def __init__(self):
-        self.thumbNailUrl = None
-        self.thumbFileName = None
-        self.name = None
-        self.info = None
-        self.url = None
-        #self.episodes = []
+def GetIndexShows():
+    Log("GetIndexShows")
+    showsList = ObjectContainer(title1=TEXT_INDEX_SHOWS)
+    pageElement = HTML.ElementFromURL(URL_INDEX)
+    programLinks = pageElement.xpath("//a[@class='playLetterLink']")
+    for s in CreateShowList(programLinks):
+        showsList.add(s)
 
+    return showsList
 
+#This function wants a <a>..</a> tag
+def CreateShowList(programLinks, isRecommendedShows = False):
+    showsList = []
+    for programLink in programLinks:
+        showUrl = URL_SITE + programLink.get("href")
+        showName = string.strip(programLink.xpath("text()")[0])
+        Log(showName)
+        Log(showUrl)
+        secondaryThumbUrl = None
+        show = TVShowObject()
+        show.title = showName
+        show.key = Callback(GetShowEpisodes, showUrl = showUrl)
+        show.rating_key = showUrl
+        showsList.append(show)
+    return showsList     
+
+def GetShowEpisodes(showUrl = None):
+    pages = GetPaginateUrls(showUrl, "pr")
+    epUrls = []
+    for page in pages:
+        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
+
+    epList = ObjectContainer(title1="Test")
+    for epUrl in epUrls:
+        epObj = GetEpisodeObject(epUrl)
+        epList.add(epObj)
+
+    return epList
+
+######################## unchecked legacy code #####################
 def ReindexShows():
     Log("Reindex shows")
     pages = GetPaginatePages(url=URL_INDEX, divId="am", paginateUrl=URL_INDEX_THUMB_PAGINATE, maxPaginateDepth=500)
@@ -30,17 +60,6 @@ def FindAllShows(pageElement):
     for show in showLinks:
         Log("info: %s " % show)
         GetShowInfo(URL_SITE + show)
-
-def GetIndexShows(sender):
-    Log("GetIndexShows")
-    showsList = MediaContainer(title1 = sender.title1, title2=TEXT_INDEX_SHOWS)
-    xpathBase = "//div[@class='tab active']"
-    pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath(xpathBase + "//a[starts-with(@href,'/t/')]")
-    
-    showsList.Extend(CreateShowList(programLinks))
-
-    return showsList
 
 def GetRecommendedShows(sender):
     Log("GetRecommendedShows")
@@ -76,35 +95,6 @@ def GetCategoryNewsShows(sender, catUrl, catName):
     catShows.Extend(CreateShowList(links, True))
     return catShows
 
-#This function wants a <a>..</a> tag
-def CreateShowList(programLinks, isRecommendedShows = False):
-    showsList = []
-    for programLink in programLinks:
-        showUrl = URL_SITE + programLink.get("href")
-        showName = string.strip(programLink.xpath("text()")[0])
-        secondaryThumbUrl = None
-        if(isRecommendedShows):
-            showName = string.strip(programLink.xpath(".//span/text()")[0])
-            secondaryThumbUrl = programLink.xpath(".//img/@src")[0]
-            Log("Secondary thumb url: %s" % secondaryThumbUrl)
-        
-        Log("Program name: %s" % showName)
-        if(Data.Exists(showName)):
-            si = Data.LoadObject(showName)
-            Log("Using stored data for: %s " % si.name)
-            #Log("subtitle: %s" % si.info)
-            #Log("thumbnail: %s " % si.thumbNailUrl)
-            thumbF = Function(GetShowThumb, showInfo=si, secondaryThumb=secondaryThumbUrl)
-            showsList.append(Function(DirectoryItem(key=GetShowContents,title=showName, summary=si.info,
-                thumb=thumbF), showInfo = si))
-            #Log("DONE")
-        else:
-            thumbF = Function(GetShowThumb, showInfo=None, secondaryThumb=secondaryThumbUrl)
-            showsList.append(Function(DirectoryItem(key=GetShowContents,title=showName, thumb=thumbF),
-                showInfo = None, showUrl = showUrl, showName = showName))
-
-    return showsList     
-
 
 def GetShowContents(sender, showInfo, showUrl = None, showName = None):
     if(showUrl == None):
@@ -133,19 +123,6 @@ def GetShowCategories(showUrl=None):
         catItems.append(f)
 
     return catItems
-
-def GetShowEpisodes(showUrl = None):
-    pages = GetPaginatePages(showUrl, "sb")
-    epUrls = []
-    for page in pages:
-        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
-
-    epList = []
-    for epUrl in epUrls:
-        #Log("EPURL: %s" % epUrl)
-        epInfo = GetEpisodeInfo(epUrl)
-        epList.append(epInfo.GetMediaItem())
-    return epList
 
 
 def GetShowInfo(showUrl):
