@@ -4,45 +4,6 @@ import re
 import string
 from common import *
 
-def GetIndexShows():
-    Log("GetIndexShows")
-    showsList = ObjectContainer(title1=TEXT_INDEX_SHOWS)
-    pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='playLetterLink']")
-    for s in CreateShowList(programLinks):
-        showsList.add(s)
-
-    return showsList
-
-#This function wants a <a>..</a> tag
-def CreateShowList(programLinks, isRecommendedShows = False):
-    showsList = []
-    for programLink in programLinks:
-        showUrl = URL_SITE + programLink.get("href")
-        showName = string.strip(programLink.xpath("text()")[0])
-        Log(showName)
-        Log(showUrl)
-        secondaryThumbUrl = None
-        show = TVShowObject()
-        show.title = showName
-        show.key = Callback(GetShowEpisodes, showUrl = showUrl)
-        show.rating_key = showUrl
-        showsList.append(show)
-    return showsList     
-
-def GetShowEpisodes(showUrl = None):
-    pages = GetPaginateUrls(showUrl, "pr")
-    epUrls = []
-    for page in pages:
-        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
-
-    epList = ObjectContainer(title1="Test")
-    for epUrl in epUrls:
-        epObj = GetEpisodeObject(epUrl)
-        epList.add(epObj)
-
-    return epList
-
 ######################## unchecked legacy code #####################
 def ReindexShows():
     Log("Reindex shows")

@@ -11,12 +11,14 @@ def GetEpisodeUrlsFromPage(url):
     except:
         return epUrls
 
-    xpath = "//div[@class='playPagerArea']//article//a[contains(@href, 'video')]//@href"
+    xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
     episodeElements = pageElement.xpath(xpath)
     for epElem in episodeElements:
         epUrl = URL_SITE + epElem
         epUrls.append(epUrl)
+        HTTP.PreCache(epUrl)
 
+    Log(len(epUrls))
     return epUrls
 
 def GetEpisodeObject(url):

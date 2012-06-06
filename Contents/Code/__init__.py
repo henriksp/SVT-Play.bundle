@@ -2,8 +2,8 @@
 
 import re
 import string
-import cerealizer
 from show import *
+import cerealizer
 from common import *
 from episode import *
 from category import *
@@ -16,15 +16,7 @@ def Start():
     HTTP.CacheTime = CACHE_TIME_SHORT
     HTTP.PreCache(URL_INDEX)
 
-    MediaContainer.art = R(ART)
-    DirectoryItem.thumb = R(THUMB)
-    VideoItem.thumb = R(THUMB)
-    WebVideoItem.thumb = R(THUMB)
-
-    cerealizer.register(CategoryInfo)
-
     #Thread.Create(ReindexShows)
-    Log("Quality Setting: %s" % Prefs[PREF_QUALITY])
 
 # Menu builder methods
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -43,7 +35,63 @@ def MainMenu():
     #menu.Append(PrefsItem(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
     return menu
 
+#------------SHOW FUNCTIONS ---------------------
+def GetIndexShows():
+    Log("GetIndexShows")
+    showsList = ObjectContainer(title1=TEXT_INDEX_SHOWS)
+    pageElement = HTML.ElementFromURL(URL_INDEX)
+    programLinks = pageElement.xpath("//a[@class='playLetterLink']")
+    for s in CreateShowList(programLinks):
+        showsList.add(s)
 
+    return showsList
+
+#This function wants a <a>..</a> tag
+def CreateShowList(programLinks, isRecommendedShows = False):
+    showsList = []
+    for programLink in programLinks:
+        showUrl = URL_SITE + programLink.get("href")
+        showName = string.strip(programLink.xpath("text()")[0])
+        Log(showName)
+        show = TVShowObject()
+        show.title = showName
+        show.key = Callback(GetShowEpisodes, showUrl = showUrl)
+        show.rating_key = showUrl
+        show.thumb = R(THUMB)
+        show.summary = GetShowSummary(showUrl, showName)
+        showsList.append(show)
+
+    return showsList     
+
+def GetShowSummary(url, showName):
+    sumExt = ".summary"
+    showSumSave = showName + sumExt
+    if Data.Exists(showSumSave):
+        return Data.LoadObject(showName + sumExt)
+    else:
+        pageElement = HTML.ElementFromURL(url)
+        sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
+        Data.SaveObject(showSumSave, str(show.summary))
+        if (len(sum) > 0):
+            return sum[0]
+
+    return ""
+
+def GetShowEpisodes(showUrl = None):
+    pages = GetPaginateUrls(showUrl, "pr")
+    epUrls = []
+    for page in pages:
+        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
+
+    epList = ObjectContainer(title1="Test")
+    for epUrl in epUrls:
+        epObj = GetEpisodeObject(epUrl)
+        epList.add(epObj)
+
+    return epList
+
+
+######################## unchecked legacy code #####################
 def GetCategories(sender):
     Log("GetCategories")
     catMenu = MediaContainer(viewGroup="List", title1 = sender.title1, title2=TEXT_CATEGORIES)
