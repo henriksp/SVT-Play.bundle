@@ -28,13 +28,13 @@ def GetEpisodeObject(url):
        show = page.xpath("//div[@class='playVideoBox']/h1/text()")[0]
        title = page.xpath("//div[@class='playVideoInfo']//h1/text()")[0]
        description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
-       #try:
-           #air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
-           #air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
-           #air_date = datetime.datetime.strptime(air_date, '%Y-%m-%dT%H:%M')
-       #except:
-           #Log.Exception("Error converting airdate: " + air_date)
-       air_date = datetime.datetime.now()
+       try:
+           air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
+           air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
+           air_date = Datetime.ParseDate(air_date)
+       except:
+           Log.Exception("Error converting airdate: " + air_date)
+           air_date = Datetime.now()
      
        #Get time from <time> tag instead
        #duration = page.xpath("//div[@class='playVideoBox']//time/text()")

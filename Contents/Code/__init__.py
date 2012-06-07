@@ -46,8 +46,8 @@ def GetIndexShows():
 
     return showsList
 
-#This function wants a <a>..</a> tag
-def CreateShowList(programLinks, isRecommendedShows = False):
+#This function wants a <a>..</a> tag list
+def CreateShowList(programLinks):
     showsList = []
     for programLink in programLinks:
         showUrl = URL_SITE + programLink.get("href")
@@ -55,7 +55,7 @@ def CreateShowList(programLinks, isRecommendedShows = False):
         Log(showName)
         show = TVShowObject()
         show.title = showName
-        show.key = Callback(GetShowEpisodes, showUrl = showUrl)
+        show.key = Callback(GetShowEpisodes, showUrl=showUrl, showName=showName)
         show.rating_key = showUrl
         show.thumb = R(THUMB)
         show.summary = GetShowSummary(showUrl, showName)
@@ -77,13 +77,13 @@ def GetShowSummary(url, showName):
 
     return ""
 
-def GetShowEpisodes(showUrl = None):
+def GetShowEpisodes(showUrl = None, showName = ""):
     pages = GetPaginateUrls(showUrl, "pr")
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    epList = ObjectContainer(title1="Test")
+    epList = ObjectContainer(title1=showName)
     for epUrl in epUrls:
         epObj = GetEpisodeObject(epUrl)
         epList.add(epObj)
