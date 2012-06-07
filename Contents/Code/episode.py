@@ -36,8 +36,6 @@ def GetEpisodeObject(url):
            Log.Exception("Error converting airdate: " + air_date)
            air_date = Datetime.now()
      
-       #Get time from <time> tag instead
-       #duration = page.xpath("//div[@class='playVideoBox']//time/text()")
        duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
        duration = int(duration) * 60 * 1000 #millisecs
      

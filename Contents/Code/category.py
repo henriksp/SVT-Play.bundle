@@ -2,6 +2,7 @@
 # This class is for subcategories on pages like Bolibompa
 # Do not confuse with the main categories accessible from the root page.
 
+######################## unchecked legacy code #####################
 from common import *
 
 class CategoryInfo:

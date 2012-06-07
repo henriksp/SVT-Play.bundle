@@ -16,6 +16,7 @@ def Start():
     HTTP.CacheTime = CACHE_TIME_SHORT
     HTTP.PreCache(URL_INDEX)
 
+    #Start asap to reindex all shows
     #Thread.Create(ReindexShows)
 
 # Menu builder methods
@@ -36,6 +37,9 @@ def MainMenu():
     return menu
 
 #------------SHOW FUNCTIONS ---------------------
+def ReindexShows():
+    GetIndexShows()
+
 def GetIndexShows():
     Log("GetIndexShows")
     showsList = ObjectContainer(title1=TEXT_INDEX_SHOWS)
@@ -68,14 +72,16 @@ def GetShowSummary(url, showName):
     showSumSave = showName + sumExt
     if Data.Exists(showSumSave):
         return Data.LoadObject(showSumSave)
-    else:
-        pageElement = HTML.ElementFromURL(url)
-        sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
-        if (len(sum) > 0):
-            Data.SaveObject(showSumSave, str(sum[0]))
-            return sum[0]
+    else: #No summary available atm. Don't wait for it.
+        Thread.Create(GetShowSummaryAsync, url=url, showSumSave=showSumSave)
+        return ""
 
-    return ""
+def GetShowSummaryAsync(url, showSumSave):
+    pageElement = HTML.ElementFromURL(url)
+    sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
+    if (len(sum) > 0):
+        Data.SaveObject(showSumSave, str(sum[0]))
+
 
 def GetShowEpisodes(showUrl = None, showName = ""):
     pages = GetPaginateUrls(showUrl, "pr")

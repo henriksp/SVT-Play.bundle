@@ -4,6 +4,7 @@ import re
 import string
 from common import *
 
+
 ######################## unchecked legacy code #####################
 def ReindexShows():
     Log("Reindex shows")
