@@ -67,12 +67,12 @@ def GetShowSummary(url, showName):
     sumExt = ".summary"
     showSumSave = showName + sumExt
     if Data.Exists(showSumSave):
-        return Data.LoadObject(showName + sumExt)
+        return Data.LoadObject(showSumSave)
     else:
         pageElement = HTML.ElementFromURL(url)
         sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
-        Data.SaveObject(showSumSave, str(show.summary))
         if (len(sum) > 0):
+            Data.SaveObject(showSumSave, str(sum[0]))
             return sum[0]
 
     return ""
