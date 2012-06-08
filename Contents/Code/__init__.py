@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*
 
-#import re
 import string
-#from show import *
 from common import *
-from episode import *
-#from category import *
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -150,6 +146,65 @@ def GetLatestShows():
     return epList
 
 
+#------------EPISODE FUNCTIONS ---------------------
+def GetEpisodeUrlsFromPage(url):
+    epUrls = []
+    Log(url)
+    try:
+        pageElement = HTML.ElementFromURL(url)
+    except:
+        return epUrls
+
+    xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
+    episodeElements = pageElement.xpath(xpath)
+    for epElem in episodeElements:
+        epUrl = URL_SITE + epElem
+        epUrls.append(epUrl)
+        HTTP.PreCache(epUrl)
+
+    Log(len(epUrls))
+    return epUrls
+
+def GetEpisodeObject(url):
+    try:
+        # Request the page
+       page = HTML.ElementFromURL(url)
+
+       show = page.xpath("//div[@class='playVideoBox']/h1/text()")[0]
+       title = page.xpath("//div[@class='playVideoInfo']//h1/text()")[0]
+       description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
+
+       try:
+           air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
+           air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
+           air_date = Datetime.ParseDate(air_date)
+       except:
+           Log.Exception("Error converting airdate: " + air_date)
+           air_date = Datetime.now()
+     
+       try:
+           duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
+           duration = int(duration) * 60 * 1000 #millisecs
+       except:
+           duration = 0
+     
+       thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
+     
+       return EpisodeObject(
+               url = url,
+               show = show,
+               title = title,
+               summary = description,
+               duration = duration,
+               thumb = thumb,
+               art = thumb,
+               originally_available_at = air_date)
+     
+    except:
+        Log.Exception("An error occurred while attempting to retrieve the required meta data.")
+
+#------------MISC FUNCTIONS ---------------------
+
 def ValidatePrefs():
     Log("Validate prefs")
     global MAX_PAGINATE_PAGES
@@ -159,58 +214,4 @@ def ValidatePrefs():
         pass
 
     Log("max paginate %d" % MAX_PAGINATE_PAGES)
-
-######################## unchecked legacy code #####################
-def GetCategories(sender):
-    Log("GetCategories")
-    catMenu = MediaContainer(viewGroup="List", title1 = sender.title1, title2=TEXT_CATEGORIES)
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_CHILD, thumb=R("category_barn.png")),
-        catUrl=URL_CAT_CHILD, catName=TEXT_CAT_CHILD))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_MOVIE_DRAMA, thumb=R("category_film_och_drama.png")),
-        catUrl=URL_CAT_MOVIE_DRAMA, catName=TEXT_CAT_MOVIE_DRAMA))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_FACT,
-        thumb=R("category_samhalle_och_fakta.png")),
-        catUrl=URL_CAT_FACT, catName=TEXT_CAT_FACT))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryNewsShows, title=TEXT_CAT_NEWS,
-        thumb=R("category_nyheter.png")),
-        catUrl=URL_CAT_NEWS, catName=TEXT_CAT_NEWS))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryNewsShows, title=TEXT_CAT_SPORT,
-        thumb=R("category_sport.png")),
-        catUrl=URL_CAT_SPORT, catName=TEXT_CAT_SPORT))
-
-    return catMenu
-
-def GetMostViewed(sender):
-    Log("GetMostViewed")
-    showsList = MediaContainer(title1 = sender.title1, title2 = TEXT_MOST_VIEWED)
-    pages = GetPaginatePages(url=URL_MOST_VIEWED, divId='pb', maxPaginateDepth = MAX_PAGINATE_PAGES)
-    linksList = []
-    for page in pages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='pb']//div[@class='content']//a")
-        linksList = linksList + links
-
-    showsList.Extend(CreateShowList(linksList, True))
- 
-    return showsList
-   
-def GetLatestClips(sender):
-    Log("GetLatestClips")
-    clipsList = MediaContainer(title1 = sender.title1, title2 = TEXT_LATEST_CLIPS)
-    clipsPages = GetPaginatePages(url=URL_LATEST_CLIPS, divId='cb', maxPaginateDepth = MAX_PAGINATE_PAGES)
-    clipLinks = []
-    for page in clipsPages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='cb']//div[@class='content']//a/@href")
-        for link in links:
-            clipLink = URL_SITE + link
-            clipLinks.append(clipLink)
-            Log("clipLink: %s" % clipLink)
-
-    for clipLink in clipLinks:
-        epInfo = GetEpisodeInfo(clipLink)        
-        clipsList.Append(epInfo.GetMediaItem())
-
-    return clipsList
-
 

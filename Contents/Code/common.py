@@ -8,9 +8,6 @@ PLUGIN_PREFIX	= "/video/svt"
 #URLs
 URL_SITE = "http://www.svtplay.se"
 URL_INDEX = URL_SITE + "/program"
-#URL_INDEX_THUMB_PAGINATE = "?am,,%d,thumbs"
-#URL_INDEX_THUMB = URL_INDEX + URL_INDEX_THUMB_PAGINATE
-#URL_PLEX_PLAYER = "http://www.plexapp.com/player/player.php?&url="
 URL_LIVE = URL_SITE + "/?live=1"
 #URL_RECOMMENDED_SHOWS = "http://svtplay.se/?cb,a1364145,1,f,-1/pb,a1364142,1,f,"
 #URL_LATEST_CLIPS = "http://svtplay.se/?cb,a1364145,1,f,/pb,a1364142,1,f,-1"
@@ -81,6 +78,3 @@ def GetPaginateUrls(url, dataname="pr", baseurl=None):
         Log(suburl)
 
     return urls
-
-def PlayVideo():
-    return None
