@@ -14,16 +14,16 @@ def Start():
 # Menu builder methods
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def MainMenu():
-    menu = ObjectContainer(view_group="List", title1= TEXT_TITLE + " " + VERSION)
-    menu.add(DirectoryObject(key=Callback(GetIndexShows), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
-    menu.add(DirectoryObject(key=Callback(GetLiveShows), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
+    menu = ObjectContainer(view_group="List", title1=TEXT_TITLE + " " + VERSION)
+    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
+    menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
     #menu.Append(Function(DirectoryItem(GetRecommendedShows, title=TEXT_RECOMMENDED_SHOWS,
         #thumb=R('main_rekommenderat.png'))))
     menu.add(DirectoryObject(
-        key=Callback(GetLatestNews), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
+        key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     #menu.Append(Function(DirectoryItem(GetLatestClips, title=TEXT_LATEST_CLIPS, thumb=R('main_senaste_klipp.png'))))
     menu.add(DirectoryObject(
-        key=Callback(GetLatestShows), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
+        key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     #menu.Append(Function(DirectoryItem(GetMostViewed, title=TEXT_MOST_VIEWED, thumb=R('main_mest_sedda.png'))))
     #menu.Append(Function(DirectoryItem(GetCategories, title=TEXT_CATEGORIES, thumb=R('main_kategori.png'))))
     #menu.Append(Function(DirectoryItem(ListLiveMenu, title=TEXT_LIVE_SHOWS, thumb=R('main_live.png'))))
@@ -31,19 +31,19 @@ def MainMenu():
     return menu
 
 #------------SHOW FUNCTIONS ---------------------
-def GetIndexShows():
+def GetIndexShows(prevTitle):
     Log("GetIndexShows")
-    showsList = ObjectContainer(title1=TEXT_INDEX_SHOWS)
+    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_SHOWS)
     pageElement = HTML.ElementFromURL(URL_INDEX)
     programLinks = pageElement.xpath("//a[@class='playLetterLink']")
-    for s in CreateShowList(programLinks):
+    for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
         showsList.add(s)
 
     Thread.Create(HarvestShowData, programLinks = programLinks)
     return showsList
 
 #This function wants a <a>..</a> tag list
-def CreateShowList(programLinks):
+def CreateShowList(programLinks, parentTitle=None):
     showsList = []
     for programLink in programLinks:
         showUrl = URL_SITE + programLink.get("href")
@@ -51,7 +51,7 @@ def CreateShowList(programLinks):
         Log(showName)
         show = TVShowObject()
         show.title = showName
-        show.key = Callback(GetShowEpisodes, showUrl=showUrl, showName=showName)
+        show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
         show.rating_key = showUrl
         show.thumb = R(THUMB)
         show.summary = GetShowSummary(showUrl, showName)
@@ -67,34 +67,36 @@ def GetShowSummary(url, showName):
     return ""
 
 def HarvestShowData(programLinks):
+    sumExt = ".summary"
     for programLink in programLinks:
         showURL = URL_SITE + programLink.get("href")
         showName = string.strip(programLink.xpath("text()")[0])
-        pageElement = HTML.ElementFromURL(url)
+        pageElement = HTML.ElementFromURL(showURL)
         sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
 
         if (len(sum) > 0):
+            showSumSave = showName + sumExt
             Data.SaveObject(showSumSave, str(sum[0]))
 
     return
 
-def GetShowEpisodes(showUrl = None, showName = ""):
+def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     pages = GetPaginateUrls(showUrl, "pr")
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    epList = ObjectContainer(title1=showName)
+    epList = ObjectContainer(title1=prevTitle, title2=showName)
     for epUrl in epUrls:
         epObj = GetEpisodeObject(epUrl)
         epList.add(epObj)
 
     return epList
 
-def GetLiveShows():
+def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
     liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
-    showsList = ObjectContainer(title1="Live shows")
+    showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
     for a in liveshows:
         url = a.xpath("@href")[0]
         url = URL_SITE + url
@@ -117,13 +119,13 @@ def GetLiveShows():
         showsList.add(show)
     return showsList
         
-def GetLatestNews():
+def GetLatestNews(prevTitle):
     pages = GetPaginateUrls(URL_LATEST_NEWS, "en", URL_SITE + "/")
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    epList = ObjectContainer(title1=TEXT_LATEST_NEWS)
+    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_NEWS)
     for epUrl in epUrls:
         Log(epUrl)
         epObj = GetEpisodeObject(epUrl)
@@ -131,13 +133,13 @@ def GetLatestNews():
 
     return epList
 
-def GetLatestShows():
+def GetLatestShows(prevTitle):
     pages = GetPaginateUrls(URL_LATEST_SHOWS, "ep", URL_SITE + "/")
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    epList = ObjectContainer(title1=TEXT_LATEST_SHOWS)
+    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_SHOWS)
     for epUrl in epUrls:
         Log(epUrl)
         epObj = GetEpisodeObject(epUrl)

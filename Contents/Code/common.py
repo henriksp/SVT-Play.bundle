@@ -2,7 +2,7 @@
 
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="3.2b2"
+VERSION="3.2b3"
 PLUGIN_PREFIX	= "/video/svt"
 
 #URLs
