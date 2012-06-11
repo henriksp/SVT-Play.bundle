@@ -176,13 +176,14 @@ def GetEpisodeObject(url):
        title = page.xpath("//div[@class='playVideoInfo']//h1/text()")[0]
        description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
 
+       air_date = ""
        try:
            air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
            air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
            air_date = Datetime.ParseDate(air_date)
        except:
            Log.Exception("Error converting airdate: " + air_date)
-           air_date = Datetime.now()
+           air_date = Datetime.Now()
      
        try:
            duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
