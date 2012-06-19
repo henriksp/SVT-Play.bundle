@@ -1,134 +1,222 @@
 # -*- coding: utf-8 -*
 
-import re
 import string
-import cerealizer
-from show import *
 from common import *
-from episode import *
-from category import *
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 def Start():
     Plugin.AddPrefixHandler(PLUGIN_PREFIX, MainMenu, TEXT_TITLE, "icon-default.png", "art-default.jpg")
-    Plugin.AddViewGroup(name="List")
     HTTP.CacheTime = CACHE_TIME_SHORT
     HTTP.PreCache(URL_INDEX)
 
-    MediaContainer.art = R(ART)
-    DirectoryItem.thumb = R(THUMB)
-    VideoItem.thumb = R(THUMB)
-    WebVideoItem.thumb = R(THUMB)
-
-    cerealizer.register(ShowInfo)
-    cerealizer.register(EpisodeInfo)
-    cerealizer.register(CategoryInfo)
-
-    Thread.Create(ReindexShows)
-    Log("Quality Setting: %s" % Prefs[PREF_QUALITY])
+    DirectoryObject.art = R(ART)
+    DirectoryObject.thumb = R(THUMB)
+    ObjectContainer.art = R(ART)
+    EpisodeObject.art = R(ART)
+    EpisodeObject.thumb = R(THUMB)
+    TVShowObject.art = R(ART)
+    TVShowObject.thumb = R(THUMB)
 
 # Menu builder methods
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def MainMenu():
-    menu = MediaContainer(viewGroup="List", title1= TEXT_TITLE + " " + VERSION)
-    menu.Append(Function(DirectoryItem(GetIndexShows, title=TEXT_INDEX_SHOWS, thumb=R('main_index.png'))))
-    menu.Append(Function(DirectoryItem(GetRecommendedShows, title=TEXT_RECOMMENDED_SHOWS,
-        thumb=R('main_rekommenderat.png'))))
-    #menu.Append(WebVideoItem(url="http://svtplay.se/t/102782/mitt_i_naturen", title="PauseTest"))
-    menu.Append(Function(DirectoryItem(GetLatestNews, title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png'))))
-    menu.Append(Function(DirectoryItem(GetLatestClips, title=TEXT_LATEST_CLIPS, thumb=R('main_senaste_klipp.png'))))
-    menu.Append(Function(DirectoryItem(GetLatestShows, title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png'))))
-    menu.Append(Function(DirectoryItem(GetMostViewed, title=TEXT_MOST_VIEWED, thumb=R('main_mest_sedda.png'))))
-    menu.Append(Function(DirectoryItem(GetCategories, title=TEXT_CATEGORIES, thumb=R('main_kategori.png'))))
-    menu.Append(Function(DirectoryItem(ListLiveMenu, title=TEXT_LIVE_SHOWS, thumb=R('main_live.png'))))
-    menu.Append(PrefsItem(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
+    menu = ObjectContainer(title1=TEXT_TITLE + " " + VERSION)
+    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
+    menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
+    menu.add(DirectoryObject(
+        key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
+    menu.add(DirectoryObject(
+        key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
+    menu.add(PrefsObject(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
+    Log(VERSION)
     return menu
 
+#------------SHOW FUNCTIONS ---------------------
+def GetIndexShows(prevTitle):
+    Log("GetIndexShows")
+    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_SHOWS)
+    pageElement = HTML.ElementFromURL(URL_INDEX)
+    programLinks = pageElement.xpath("//a[@class='playLetterLink']")
+    for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
+        showsList.add(s)
 
-def GetCategories(sender):
-    Log("GetCategories")
-    catMenu = MediaContainer(viewGroup="List", title1 = sender.title1, title2=TEXT_CATEGORIES)
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_CHILD, thumb=R("category_barn.png")),
-        catUrl=URL_CAT_CHILD, catName=TEXT_CAT_CHILD))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_MOVIE_DRAMA, thumb=R("category_film_och_drama.png")),
-        catUrl=URL_CAT_MOVIE_DRAMA, catName=TEXT_CAT_MOVIE_DRAMA))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryShows, title=TEXT_CAT_FACT,
-        thumb=R("category_samhalle_och_fakta.png")),
-        catUrl=URL_CAT_FACT, catName=TEXT_CAT_FACT))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryNewsShows, title=TEXT_CAT_NEWS,
-        thumb=R("category_nyheter.png")),
-        catUrl=URL_CAT_NEWS, catName=TEXT_CAT_NEWS))
-    catMenu.Append(Function(DirectoryItem(key=GetCategoryNewsShows, title=TEXT_CAT_SPORT,
-        thumb=R("category_sport.png")),
-        catUrl=URL_CAT_SPORT, catName=TEXT_CAT_SPORT))
-
-    return catMenu
-
-def GetLatestNews(sender):
-    Log("GetLatestNews")
-    newsList = MediaContainer(title1=sender.title1, title2 = TEXT_LATEST_NEWS)
-    pages = GetPaginatePages(url=URL_LATEST_NEWS, divId='pb')
-    linksList = []
-    for page in pages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='pb']//div[@class='content']//a/@href")
-        for link in links:
-            newsLink = URL_SITE + link
-            linksList.append(newsLink)
-
-    for link in linksList:
-        epInfo = GetEpisodeInfo(link)        
-        newsList.Append(epInfo.GetMediaItem())
-
-    return newsList
-
-def GetMostViewed(sender):
-    Log("GetMostViewed")
-    showsList = MediaContainer(title1 = sender.title1, title2 = TEXT_MOST_VIEWED)
-    pages = GetPaginatePages(url=URL_MOST_VIEWED, divId='pb', maxPaginateDepth = MAX_PAGINATE_PAGES)
-    linksList = []
-    for page in pages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='pb']//div[@class='content']//a")
-        linksList = linksList + links
-
-    showsList.Extend(CreateShowList(linksList, True))
- 
+    Thread.Create(HarvestShowData, programLinks = programLinks)
     return showsList
 
-def GetLatestShows(sender):
-    Log("GetLatestShows")
-    showsList = MediaContainer(title1 = sender.title1, title2 = TEXT_LATEST_SHOWS)
-    pages = GetPaginatePages(url=URL_LATEST_SHOWS, divId='pb', maxPaginateDepth = MAX_PAGINATE_PAGES)
-    linksList = []
+#This function wants a <a>..</a> tag list
+def CreateShowList(programLinks, parentTitle=None):
+    showsList = []
+    for programLink in programLinks:
+        try:
+            showUrl = URL_SITE + programLink.get("href")
+            showName = string.strip(programLink.xpath("text()")[0])
+            Log(showName)
+            show = DirectoryObject()
+            show.title = showName
+            show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
+            show.thumb = R(THUMB)
+            show.summary = GetShowSummary(showUrl, showName)
+            showsList.append(show)
+        except: 
+            Log(VERSION)
+            pass
+
+    return showsList     
+
+def GetShowSummary(url, showName):
+    sumExt = ".summary"
+    showSumSave = showName + sumExt
+    if Data.Exists(showSumSave):
+        return Data.LoadObject(showSumSave)
+    return ""
+
+def HarvestShowData(programLinks):
+    sumExt = ".summary"
+    for programLink in programLinks:
+        try:
+            showURL = URL_SITE + programLink.get("href")
+            showName = string.strip(programLink.xpath("text()")[0])
+            pageElement = HTML.ElementFromURL(showURL, cacheTime = CACHE_TIME_1DAY)
+            sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
+
+            if (len(sum) > 0):
+                showSumSave = showName + sumExt
+                Data.SaveObject(showSumSave, str(sum[0]))
+        except:
+            Log(VERSION)
+            pass
+
+def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
+    pages = GetPaginateUrls(showUrl, "pr")
+    epUrls = []
     for page in pages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='pb']//div[@class='content']//a")
-        linksList = linksList + links
+        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    showsList.Extend(CreateShowList(linksList, True))
+    epList = ObjectContainer(title1=prevTitle, title2=showName)
+    for epUrl in epUrls:
+        epObj = GetEpisodeObject(epUrl)
+        epList.add(epObj)
+
+    return epList
+
+def GetLiveShows(prevTitle):
+    page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
+    liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
+    showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
+    for a in liveshows:
+        url = a.xpath("@href")[0]
+        url = URL_SITE + url
+        showsList.add(GetEpisodeObject(url))
     return showsList
-   
-def GetLatestClips(sender):
-    Log("GetLatestClips")
-    clipsList = MediaContainer(title1 = sender.title1, title2 = TEXT_LATEST_CLIPS)
-    clipsPages = GetPaginatePages(url=URL_LATEST_CLIPS, divId='cb', maxPaginateDepth = MAX_PAGINATE_PAGES)
-    clipLinks = []
-    for page in clipsPages:
-        pageElement = HTML.ElementFromURL(page)
-        links = pageElement.xpath("//div[@id='cb']//div[@class='content']//a/@href")
-        for link in links:
-            clipLink = URL_SITE + link
-            clipLinks.append(clipLink)
-            Log("clipLink: %s" % clipLink)
+    
+    for a in liveshows:
+        url = a.xpath("@href")[0]
+        url = URL_SITE + url
+        title = a.xpath(".//h5/text()")[0]
+        thumb = a.xpath(".//img[2]/@src")[0]
+        Log(url)
+        Log(title)
+        Log(thumb)
+        show = EpisodeObject(
+            url = url,
+            title = title,
+            thumb = thumb
+            )
+        showsList.add(show)
+    return showsList
+        
+def GetLatestNews(prevTitle):
+    pages = GetPaginateUrls(URL_LATEST_NEWS, "en", URL_SITE + "/")
+    epUrls = []
+    for page in pages:
+        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
 
-    for clipLink in clipLinks:
-        epInfo = GetEpisodeInfo(clipLink)        
-        clipsList.Append(epInfo.GetMediaItem())
+    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_NEWS)
+    for epUrl in epUrls:
+        Log(epUrl)
+        epObj = GetEpisodeObject(epUrl)
+        epList.add(epObj)
 
-    return clipsList
+    return epList
 
+def GetLatestShows(prevTitle):
+    pages = GetPaginateUrls(URL_LATEST_SHOWS, "ep", URL_SITE + "/")
+    epUrls = []
+    for page in pages:
+        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
+
+    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_SHOWS)
+    for epUrl in epUrls:
+        Log(epUrl)
+        epObj = GetEpisodeObject(epUrl)
+        epList.add(epObj)
+
+    return epList
+
+
+#------------EPISODE FUNCTIONS ---------------------
+def GetEpisodeUrlsFromPage(url):
+    epUrls = []
+    Log(url)
+    try:
+        pageElement = HTML.ElementFromURL(url)
+    except:
+        Log(VERSION)
+        return epUrls
+
+    xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
+    episodeElements = pageElement.xpath(xpath)
+    for epElem in episodeElements:
+        epUrl = URL_SITE + epElem
+        epUrls.append(epUrl)
+        HTTP.PreCache(epUrl)
+
+    Log(len(epUrls))
+    return epUrls
+
+def GetEpisodeObject(url):
+    try:
+        # Request the page
+       page = HTML.ElementFromURL(url)
+
+       show = page.xpath("//div[@class='playVideoBox']/h1/text()")[0]
+       title = page.xpath("//div[@class='playVideoInfo']//h1/text()")[0]
+       description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
+
+       air_date = ""
+       try:
+           air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
+           air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
+           air_date = Datetime.ParseDate(air_date)
+       except:
+           Log(VERSION)
+           Log.Exception("Error converting airdate: " + air_date)
+           air_date = Datetime.Now()
+     
+       try:
+           duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
+           duration = int(duration) * 60 * 1000 #millisecs
+       except:
+           duration = 0
+     
+       thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
+     
+       return EpisodeObject(
+               url = url,
+               show = show,
+               title = title,
+               summary = description,
+               duration = duration,
+               thumb = thumb,
+               art = thumb,
+               originally_available_at = air_date)
+     
+    except:
+        Log(VERSION)
+        Log.Exception("An error occurred while attempting to retrieve the required meta data.")
+
+#------------MISC FUNCTIONS ---------------------
 
 def ValidatePrefs():
     Log("Validate prefs")
@@ -139,16 +227,4 @@ def ValidatePrefs():
         pass
 
     Log("max paginate %d" % MAX_PAGINATE_PAGES)
-
-def ListLiveMenu(sender):
-    liveList = MediaContainer()
-    pageElement = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
-    activeLinks = pageElement.xpath("//span[@class='description']/a/@href")
-    for link in activeLinks:
-        newLink = URL_SITE + link
-        Log("Link: %s " % newLink)
-        epInfo = GetEpisodeInfo(newLink, True)
-        liveList.Append(epInfo.GetMediaItem())
-
-    return liveList
 
