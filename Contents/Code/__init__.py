@@ -1,7 +1,9 @@
+
 # -*- coding: utf-8 -*
 
 import string
 from common import *
+import hashlib
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -34,10 +36,9 @@ def MainMenu():
 
 #------------SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle):
-    Log("GetIndexShows")
     showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_SHOWS)
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='playLetterLink']")
+    programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
     for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
         showsList.add(s)
 
@@ -48,25 +49,27 @@ def GetIndexShows(prevTitle):
 def CreateShowList(programLinks, parentTitle=None):
     showsList = []
     for programLink in programLinks:
-        try:
+        #try:
+	    Log("showUrl")
             showUrl = URL_SITE + programLink.get("href")
+            Log(showUrl)
             showName = string.strip(programLink.xpath("text()")[0])
-            Log(showName)
             show = DirectoryObject()
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
             show.thumb = R(THUMB)
             show.summary = GetShowSummary(showUrl, showName)
             showsList.append(show)
-        except: 
-            Log(VERSION)
-            pass
+        #except: 
+          #  Log(VERSION)
+         #   pass
 
     return showsList     
 
 def GetShowSummary(url, showName):
     sumExt = ".summary"
     showSumSave = showName + sumExt
+    showSumSave = ReplaceSpecials(showSumSave)
     if Data.Exists(showSumSave):
         return Data.LoadObject(showSumSave)
     return ""
@@ -74,21 +77,24 @@ def GetShowSummary(url, showName):
 def HarvestShowData(programLinks):
     sumExt = ".summary"
     for programLink in programLinks:
-        try:
+        #try:
             showURL = URL_SITE + programLink.get("href")
             showName = string.strip(programLink.xpath("text()")[0])
             pageElement = HTML.ElementFromURL(showURL, cacheTime = CACHE_TIME_1DAY)
             sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
-
+            Log(sum)
+	    
             if (len(sum) > 0):
                 showSumSave = showName + sumExt
-                Data.SaveObject(showSumSave, str(sum[0]))
-        except:
-            Log(VERSION)
-            pass
+                showSumSave = ReplaceSpecials(showSumSave)
+                Data.SaveObject(showSumSave, sum[0].encode('utf-8'))
+        #except:
+        #    Log(VERSION)
+       #     pass
 
 def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     pages = GetPaginateUrls(showUrl, "pr")
+    Log(pages)
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
@@ -96,6 +102,7 @@ def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     epList = ObjectContainer(title1=prevTitle, title2=showName)
     for epUrl in epUrls:
         epObj = GetEpisodeObject(epUrl)
+        Log("epUrl " + epUrl)
         epList.add(epObj)
 
     return epList
@@ -164,10 +171,11 @@ def GetEpisodeUrlsFromPage(url):
     except:
         Log(VERSION)
         return epUrls
-
-    xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
+    xpath = "//div[@class='playDisplayTable']//a[contains(@href,'video')]//@href"
+    #xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
     episodeElements = pageElement.xpath(xpath)
     for epElem in episodeElements:
+        Log("URL Match: " + epElem)
         epUrl = URL_SITE + epElem
         epUrls.append(epUrl)
         HTTP.PreCache(epUrl)
@@ -181,7 +189,7 @@ def GetEpisodeObject(url):
        page = HTML.ElementFromURL(url)
 
        show = page.xpath("//div[@class='playVideoBox']/h1/text()")[0]
-       title = page.xpath("//div[@class='playVideoInfo']//h1/text()")[0]
+       title = page.xpath("//div[@class='playVideoInfo']//h2/text()")[0]
        description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
 
        air_date = ""
@@ -219,7 +227,6 @@ def GetEpisodeObject(url):
 #------------MISC FUNCTIONS ---------------------
 
 def ValidatePrefs():
-    Log("Validate prefs")
     global MAX_PAGINATE_PAGES
     try:
          MAX_PAGINATE_PAGES = int(Prefs[PREF_PAGINATE_DEPTH])
@@ -227,4 +234,8 @@ def ValidatePrefs():
         pass
 
     Log("max paginate %d" % MAX_PAGINATE_PAGES)
+
+def ReplaceSpecials(replaceString):
+    return replaceString.encode('utf-8')
+
 
