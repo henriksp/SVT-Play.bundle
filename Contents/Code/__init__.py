@@ -31,7 +31,6 @@ def MainMenu():
     menu.add(DirectoryObject(
         key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(PrefsObject(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
-    Log(VERSION)
     return menu
 
 #------------SHOW FUNCTIONS ---------------------
@@ -49,10 +48,8 @@ def GetIndexShows(prevTitle):
 def CreateShowList(programLinks, parentTitle=None):
     showsList = []
     for programLink in programLinks:
-        #try:
-	    Log("showUrl")
+        try:
             showUrl = URL_SITE + programLink.get("href")
-            Log(showUrl)
             showName = string.strip(programLink.xpath("text()")[0])
             show = DirectoryObject()
             show.title = showName
@@ -60,9 +57,9 @@ def CreateShowList(programLinks, parentTitle=None):
             show.thumb = R(THUMB)
             show.summary = GetShowSummary(showUrl, showName)
             showsList.append(show)
-        #except: 
-          #  Log(VERSION)
-         #   pass
+        except: 
+            Log("Error creating show: "+programLink.get("href"))
+            pass
 
     return showsList     
 
@@ -77,24 +74,22 @@ def GetShowSummary(url, showName):
 def HarvestShowData(programLinks):
     sumExt = ".summary"
     for programLink in programLinks:
-        #try:
+        try:
             showURL = URL_SITE + programLink.get("href")
             showName = string.strip(programLink.xpath("text()")[0])
             pageElement = HTML.ElementFromURL(showURL, cacheTime = CACHE_TIME_1DAY)
             sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
-            Log(sum)
 	    
             if (len(sum) > 0):
                 showSumSave = showName + sumExt
                 showSumSave = ReplaceSpecials(showSumSave)
                 Data.SaveObject(showSumSave, sum[0].encode('utf-8'))
-        #except:
-        #    Log(VERSION)
-       #     pass
+        except:
+            Log("Error harvesting show data: "+programLink.get("href"))
+            pass
 
 def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     pages = GetPaginateUrls(showUrl, "pr")
-    Log(pages)
     epUrls = []
     for page in pages:
         epUrls = epUrls + GetEpisodeUrlsFromPage(page)
@@ -102,7 +97,6 @@ def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     epList = ObjectContainer(title1=prevTitle, title2=showName)
     for epUrl in epUrls:
         epObj = GetEpisodeObject(epUrl)
-        Log("epUrl " + epUrl)
         epList.add(epObj)
 
     return epList
@@ -122,9 +116,6 @@ def GetLiveShows(prevTitle):
         url = URL_SITE + url
         title = a.xpath(".//h5/text()")[0]
         thumb = a.xpath(".//img[2]/@src")[0]
-        Log(url)
-        Log(title)
-        Log(thumb)
         show = EpisodeObject(
             url = url,
             title = title,
@@ -141,7 +132,6 @@ def GetLatestNews(prevTitle):
 
     epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_NEWS)
     for epUrl in epUrls:
-        Log(epUrl)
         epObj = GetEpisodeObject(epUrl)
         epList.add(epObj)
 
@@ -155,7 +145,6 @@ def GetLatestShows(prevTitle):
 
     epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_SHOWS)
     for epUrl in epUrls:
-        Log(epUrl)
         epObj = GetEpisodeObject(epUrl)
         epList.add(epObj)
 
@@ -165,22 +154,19 @@ def GetLatestShows(prevTitle):
 #------------EPISODE FUNCTIONS ---------------------
 def GetEpisodeUrlsFromPage(url):
     epUrls = []
-    Log(url)
     try:
         pageElement = HTML.ElementFromURL(url)
     except:
-        Log(VERSION)
+        Log("Error finding episode urls: "+url )
         return epUrls
+
     xpath = "//div[@class='playDisplayTable']//a[contains(@href,'video')]//@href"
-    #xpath = "//div[@class='playPagerArea']//section[@class='playPagerSection svtHide-E-XS']//a[contains(@href,'video')]//@href"
     episodeElements = pageElement.xpath(xpath)
     for epElem in episodeElements:
-        Log("URL Match: " + epElem)
         epUrl = URL_SITE + epElem
         epUrls.append(epUrl)
         HTTP.PreCache(epUrl)
 
-    Log(len(epUrls))
     return epUrls
 
 def GetEpisodeObject(url):
@@ -198,7 +184,6 @@ def GetEpisodeObject(url):
            air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
            air_date = Datetime.ParseDate(air_date)
        except:
-           Log(VERSION)
            Log.Exception("Error converting airdate: " + air_date)
            air_date = Datetime.Now()
      
@@ -221,7 +206,6 @@ def GetEpisodeObject(url):
                originally_available_at = air_date)
      
     except:
-        Log(VERSION)
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
 
 #------------MISC FUNCTIONS ---------------------
@@ -233,9 +217,5 @@ def ValidatePrefs():
     except ValueError:
         pass
 
-    Log("max paginate %d" % MAX_PAGINATE_PAGES)
-
 def ReplaceSpecials(replaceString):
     return replaceString.encode('utf-8')
-
-
