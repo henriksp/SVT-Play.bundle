@@ -188,7 +188,7 @@ def GetEpisodeObject(url):
         # Request the page
        page = HTML.ElementFromURL(url)
 
-       show = page.xpath("//div[@class='playVideoBox']/h1/text()")[0]
+       show = page.xpath("//div[@class='playVideoBox']//h1/text()")[0]
        title = page.xpath("//div[@class='playVideoInfo']//h2/text()")[0]
        description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
 
