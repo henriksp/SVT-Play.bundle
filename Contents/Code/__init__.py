@@ -130,7 +130,7 @@ def MakeShowContainer(epUrls, title1="", title2=""):
         epList.add(epObj)
     return epList
 
-def GetEpisodes(showUrl = None, maxEp = MAX_EPISODES):
+def GetEpisodeUrls(showUrl = None, maxEp = MAX_EPISODES):
     suffix = "sida=1&antal=" + str(maxEp)
     page = HTML.ElementFromURL(showUrl)
 
@@ -145,15 +145,15 @@ def GetEpisodes(showUrl = None, maxEp = MAX_EPISODES):
     return [URL_SITE + url.get("href") for url in epUrls if "video" in url.get("href")]
 
 def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
-    epUrls = GetEpisodes(showUrl)
+    epUrls = GetEpisodeUrls(showUrl)
     return MakeShowContainer(epUrls, prevTitle, showName)
 
 def GetLatestNews(prevTitle):
-    epUrls = GetEpisodes(showUrl=URL_LATEST_NEWS, maxEp=15)
+    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_NEWS, maxEp=15)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLatestShows(prevTitle):
-    epUrls = GetEpisodes(showUrl=URL_LATEST_SHOWS, maxEp=30)
+    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLiveShows(prevTitle):
