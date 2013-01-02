@@ -80,7 +80,7 @@ def GetIndexShows(prevTitle):
 def CreateShowList(programLinks, parentTitle=None):
     showsList = []
     for programLink in programLinks:
-        #try:
+        try:
 	    Log("showUrl")
             showUrl = URL_SITE + programLink.get("href")
             Log(showUrl)
@@ -91,9 +91,9 @@ def CreateShowList(programLinks, parentTitle=None):
             show.thumb = R(THUMB)
             show.summary = str(GetShowSummary(showUrl, showName))
             showsList.append(show)
-        #except: 
-          #  Log(VERSION)
-         #   pass
+        except: 
+            Log(VERSION)
+            pass
 
     return showsList     
 
@@ -108,7 +108,7 @@ def GetShowSummary(url, showName):
 def HarvestShowData(programLinks):
     sumExt = ".summary"
     for programLink in programLinks:
-        #try:
+        try:
             showURL = URL_SITE + programLink.get("href")
             showName = string.strip(programLink.xpath("text()")[0])
             pageElement = HTML.ElementFromURL(showURL, cacheTime = CACHE_TIME_1DAY)
@@ -119,9 +119,9 @@ def HarvestShowData(programLinks):
                 showSumSave = showName + sumExt
                 showSumSave = ReplaceSpecials(showSumSave)
                 Data.SaveObject(showSumSave, sum[0].encode('utf-8'))
-        #except:
-        #    Log(VERSION)
-       #     pass
+        except:
+            Log(VERSION)
+            pass
 
 def MakeShowContainer(epUrls, title1="", title2=""):
     epList = ObjectContainer(title1=title1, title2=title2)
@@ -133,16 +133,17 @@ def MakeShowContainer(epUrls, title1="", title2=""):
 def GetEpisodeUrls(showUrl = None, maxEp = MAX_EPISODES):
     suffix = "sida=1&antal=" + str(maxEp)
     page = HTML.ElementFromURL(showUrl)
+    Log(showUrl)
 
-    link = page.xpath("//a[@class='playShowMoreButton playButton ']")
-    if len(link) > 0: #If we can find the page with all episodes in, use it
-        epPageUrl = URL_SITE + link[0].get("data-baseurl") + suffix
+    link = page.xpath("//a[@class='playShowMoreButton playButton ']/@data-baseurl")
+    if len(link) > 0 and 'klipp' not in link[0]: #If we can find the page with all episodes in, use it
+        epPageUrl = URL_SITE + link[0] + suffix
         epPage = HTML.ElementFromURL(epPageUrl)
-        epUrls = epPage.xpath("//div[@class='playDisplayTable']/a")
+        epUrls = epPage.xpath("//div[@class='playDisplayTable']/a/@href")
     else: #Use the episodes on the base page
-        epUrls = page.xpath("//div[@class='playDisplayTable']/a")
+        epUrls = page.xpath("//div[@class='playDisplayTable']/a/@href")
 
-    return [URL_SITE + url.get("href") for url in epUrls if "video" in url.get("href")]
+    return [URL_SITE + url for url in epUrls if "video" in url]
 
 def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
     epUrls = GetEpisodeUrls(showUrl)
