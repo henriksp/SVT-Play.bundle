@@ -1,8 +1,0 @@
-[
-    {
-        "id":"max_episodes",
-        "type":"text",
-        "label":"Max antal episoder att visa",
-        "default":"1000"
-    }
-]
