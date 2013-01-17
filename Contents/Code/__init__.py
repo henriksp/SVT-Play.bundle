@@ -1,9 +1,40 @@
-
 # -*- coding: utf-8 -*
 
 import string
-from common import *
-import hashlib
+
+# Global constants
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+VERSION="4"
+PLUGIN_PREFIX	= "/video/svt"
+
+#URLs
+URL_SITE = "http://www.svtplay.se"
+URL_INDEX = URL_SITE + "/program"
+URL_LIVE = URL_SITE + "/?tab=live&sida=1"
+URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
+URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
+#Texts
+TEXT_LIVE_SHOWS = u'Livesändningar'
+TEXT_INDEX_SHOWS = u'Program A-Ö'
+TEXT_TITLE = u'SVT Play'
+TEXT_PREFERENCES = u'Inställningar'
+TEXT_LATEST_SHOWS = u'Senaste program'
+TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
+
+#The max number of episodes to get per show
+MAX_EPISODES = 1000
+
+ART = "art-default.jpg"
+THUMB = 'icon-default.png'
+
+#CACHE_TIME_LONG    = 60*60*24*30 # Thirty days
+CACHE_TIME_SHORT   = 60*10    # 10  minutes
+CACHE_TIME_1DAY    = 60*60*24
+CACHE_TIME_SHOW = CACHE_TIME_1DAY
+#CACHE_TIME_EPISODE = CACHE_TIME_LONG
+
+#Prefs settings
+PREF_MAX_EPISODES = 'max_episodes'
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -55,7 +86,7 @@ def CreateShowList(programLinks, parentTitle=None):
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
             show.thumb = R(THUMB)
-            show.summary = GetShowSummary(showUrl, showName)
+            show.summary = str(GetShowSummary(showUrl, showName))
             showsList.append(show)
         except: 
             Log("Error creating show: "+programLink.get("href"))
@@ -88,18 +119,39 @@ def HarvestShowData(programLinks):
             Log("Error harvesting show data: "+programLink.get("href"))
             pass
 
-def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
-    pages = GetPaginateUrls(showUrl, "pr")
-    epUrls = []
-    for page in pages:
-        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
-
-    epList = ObjectContainer(title1=prevTitle, title2=showName)
+def MakeShowContainer(epUrls, title1="", title2=""):
+    epList = ObjectContainer(title1=title1, title2=title2)
     for epUrl in epUrls:
         epObj = GetEpisodeObject(epUrl)
         epList.add(epObj)
-
     return epList
+
+def GetEpisodeUrls(showUrl = None, maxEp = MAX_EPISODES):
+    suffix = "sida=1&antal=" + str(maxEp)
+    page = HTML.ElementFromURL(showUrl)
+    Log(showUrl)
+
+    link = page.xpath("//a[@class='playShowMoreButton playButton ']/@data-baseurl")
+    if len(link) > 0 and 'klipp' not in link[0]: #If we can find the page with all episodes in, use it
+        epPageUrl = URL_SITE + link[0] + suffix
+        epPage = HTML.ElementFromURL(epPageUrl)
+        epUrls = epPage.xpath("//div[@class='playDisplayTable']/a/@href")
+    else: #Use the episodes on the base page
+        epUrls = page.xpath("//div[@class='playDisplayTable']/a/@href")
+
+    return [URL_SITE + url for url in epUrls if "video" in url]
+
+def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
+    epUrls = GetEpisodeUrls(showUrl)
+    return MakeShowContainer(epUrls, prevTitle, showName)
+
+def GetLatestNews(prevTitle):
+    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_NEWS, maxEp=15)
+    return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
+
+def GetLatestShows(prevTitle):
+    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
+    return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
@@ -124,59 +176,16 @@ def GetLiveShows(prevTitle):
         showsList.add(show)
     return showsList
         
-def GetLatestNews(prevTitle):
-    pages = GetPaginateUrls(URL_LATEST_NEWS, "en", URL_SITE + "/")
-    epUrls = []
-    for page in pages:
-        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
-
-    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_NEWS)
-    for epUrl in epUrls:
-        epObj = GetEpisodeObject(epUrl)
-        epList.add(epObj)
-
-    return epList
-
-def GetLatestShows(prevTitle):
-    pages = GetPaginateUrls(URL_LATEST_SHOWS, "ep", URL_SITE + "/")
-    epUrls = []
-    for page in pages:
-        epUrls = epUrls + GetEpisodeUrlsFromPage(page)
-
-    epList = ObjectContainer(title1=prevTitle, title2=TEXT_LATEST_SHOWS)
-    for epUrl in epUrls:
-        epObj = GetEpisodeObject(epUrl)
-        epList.add(epObj)
-
-    return epList
-
-
 #------------EPISODE FUNCTIONS ---------------------
-def GetEpisodeUrlsFromPage(url):
-    epUrls = []
-    try:
-        pageElement = HTML.ElementFromURL(url)
-    except:
-        Log("Error finding episode urls: "+url )
-        return epUrls
-
-    xpath = "//div[@class='playDisplayTable']//a[contains(@href,'video')]//@href"
-    episodeElements = pageElement.xpath(xpath)
-    for epElem in episodeElements:
-        epUrl = URL_SITE + epElem
-        epUrls.append(epUrl)
-        HTTP.PreCache(epUrl)
-
-    return epUrls
 
 def GetEpisodeObject(url):
     try:
         # Request the page
        page = HTML.ElementFromURL(url)
 
-       show = page.xpath("//div[@class='playVideoBox']//h1/text()")[0]
+       show = page.xpath("//h1[@class='playVideoBoxHeadline-Inner']/text()")[0]
        title = page.xpath("//div[@class='playVideoInfo']//h2/text()")[0]
-       description = page.xpath("//div[@class='playVideoInfo']//p/text()")[0]
+       description = page.xpath("//div[@class='playVideoInfo']/p/text()")[0].strip()
 
        air_date = ""
        try:
@@ -211,11 +220,16 @@ def GetEpisodeObject(url):
 #------------MISC FUNCTIONS ---------------------
 
 def ValidatePrefs():
-    global MAX_PAGINATE_PAGES
+    Log("Validate prefs")
+    global MAX_EPISODES
+
     try:
-         MAX_PAGINATE_PAGES = int(Prefs[PREF_PAGINATE_DEPTH])
+         MAX_EPISODES = int(Prefs[PREF_MAX_EPISODES])
     except ValueError:
         pass
 
+    Log("max episodes %d" % MAX_EPISODES)
+
 def ReplaceSpecials(replaceString):
     return replaceString.encode('utf-8')
+

@@ -1,8 +1,8 @@
 [
     {
-        "id":"paginate_depth",
+        "id":"max_episodes",
         "type":"text",
-        "label":"Max sökdjup",
-        "default":"5"
+        "label":"Max antal episoder att visa",
+        "default":"1000"
     }
 ]
