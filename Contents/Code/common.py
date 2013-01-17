@@ -3,6 +3,7 @@
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 PLUGIN_PREFIX = "/video/svt"
+VERSION="3.2b4"
 
 #URLs
 URL_SITE = "http://www.svtplay.se"
