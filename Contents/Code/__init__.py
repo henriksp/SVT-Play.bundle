@@ -61,7 +61,7 @@ def CreateShowList(programLinks, parentTitle=None):
     for programLink in programLinks:
         try:
             showUrl = URL_SITE + programLink.get("href")
-            showName = stringprogramLink.xpath("text()")[0].strip()
+            showName = programLink.xpath("text()")[0].strip()
             show = DirectoryObject()
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
