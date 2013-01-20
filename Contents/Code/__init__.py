@@ -43,14 +43,14 @@ def MainMenu():
 #------------ SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle):
 
-    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_SHOWS)
+    showsList = ObjectContainer(title1=prevTitle, title2=TEXT_INDEX_SHOWS)
     pageElement = HTML.ElementFromURL(URL_INDEX)
     programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
 
     for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
         showsList.add(s)
 
-    Thread.Create(HarvestShowData, programLinks = programLinks)
+    Thread.Create(HarvestShowData, programLinks=programLinks)
     return showsList
 
 # This function wants a <a>..</a> tag list
@@ -61,12 +61,13 @@ def CreateShowList(programLinks, parentTitle=None):
     for programLink in programLinks:
         try:
             showUrl = URL_SITE + programLink.get("href")
-            showName = programLink.xpath("text()")[0].strip()
+            showName = programLink.xpath("./text()")[0].strip()
             show = DirectoryObject()
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
             show.thumb = R(ICON)
-            show.summary = str(GetShowSummary(showUrl, showName))
+            show.summary = GetShowSummary(showUrl, showName)
+
             showsList.append(show)
         except: 
             Log("Error creating show: "+programLink.get("href"))
@@ -78,10 +79,9 @@ def GetShowSummary(url, showName):
 
     sumExt = ".summary"
     showSumSave = showName + sumExt
-    showSumSave = ReplaceSpecials(showSumSave)
 
     if Data.Exists(showSumSave):
-        return Data.LoadObject(showSumSave)
+        return unicode(Data.LoadObject(showSumSave))
 
     return ""
 
@@ -92,14 +92,13 @@ def HarvestShowData(programLinks):
     for programLink in programLinks:
         try:
             showURL = URL_SITE + programLink.get("href")
-            showName = programLink.xpath("text()")[0].strip()
+            showName = programLink.xpath("./text()")[0].strip()
             pageElement = HTML.ElementFromURL(showURL, cacheTime=CACHE_1DAY)
             sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
 	    
             if (len(sum) > 0):
                 showSumSave = showName + sumExt
-                showSumSave = ReplaceSpecials(showSumSave)
-                Data.SaveObject(showSumSave, sum[0].encode('utf-8'))
+                Data.SaveObject(showSumSave, sum[0])
         except:
             Log("Error harvesting show data: "+programLink.get("href"))
             pass
@@ -129,7 +128,7 @@ def GetEpisodeUrls(showUrl=None, maxEp=1000):
 
     return [URL_SITE + url for url in epUrls if "video" in url]
 
-def GetShowEpisodes(prevTitle = None, showUrl = None, showName = ""):
+def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     epUrls = GetEpisodeUrls(showUrl)
     return MakeShowContainer(epUrls, prevTitle, showName)
 
@@ -147,7 +146,7 @@ def GetLiveShows(prevTitle):
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
 
     for a in liveshows:
-        url = a.xpath("@href")[0]
+        url = a.get("href")
         url = URL_SITE + url
         showsList.add(GetEpisodeObject(url))
 
@@ -155,6 +154,7 @@ def GetLiveShows(prevTitle):
 
 #------------ EPISODE FUNCTIONS ---------------------
 def GetEpisodeObject(url):
+
     try:
        page = HTML.ElementFromURL(url)
 
@@ -191,8 +191,3 @@ def GetEpisodeObject(url):
 
     except:
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
-
-#------------ MISC FUNCTIONS ---------------------
-def ReplaceSpecials(replaceString):
-
-    return replaceString.encode('utf-8')
