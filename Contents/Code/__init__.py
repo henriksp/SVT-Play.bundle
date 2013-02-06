@@ -4,7 +4,7 @@ import string
 
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="4"
+VERSION="5"
 PLUGIN_PREFIX	= "/video/svt"
 
 #URLs
@@ -13,6 +13,7 @@ URL_INDEX = URL_SITE + "/program"
 URL_LIVE = URL_SITE + "/?tab=live&sida=1"
 URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
+URL_CHANNELS = URL_SITE + "/kanaler"
 #Texts
 TEXT_LIVE_SHOWS = u'Livesändningar'
 TEXT_INDEX_SHOWS = u'Program A-Ö'
@@ -20,6 +21,7 @@ TEXT_TITLE = u'SVT Play'
 TEXT_PREFERENCES = u'Inställningar'
 TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
+TEXT_CHANNELS = u'Kanaler'
 
 #The max number of episodes to get per show
 MAX_EPISODES = 1000
@@ -57,6 +59,7 @@ def MainMenu():
     menu = ObjectContainer(title1=TEXT_TITLE + " " + VERSION)
     menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
     menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
+    menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS, thumb=R('main_live.png')))
     menu.add(DirectoryObject(
         key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(
@@ -156,6 +159,23 @@ def GetLatestNews(prevTitle):
 def GetLatestShows(prevTitle):
     epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
+
+def GetChannels(prevTitle):
+    page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
+    thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
+    channelATags = page.xpath("//div[@class='svtTabMenu playChannelMenu']//a")
+    channels = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
+
+    for a in channelATags:
+        url = URL_SITE + a.get("href")
+        thumb = URL_SITE + (thumbBase % (a.get("data-channel")))
+        title = a.get("title")
+        show = EpisodeObject(
+                url = url,
+                title = title,
+                thumb = thumb)
+        channels.add(show)
+    return channels
 
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
