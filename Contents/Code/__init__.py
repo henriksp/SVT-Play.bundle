@@ -160,20 +160,30 @@ def GetLatestShows(prevTitle):
 
 def GetChannels():
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
+    shows = page.xpath("//div[@class='playChannelSchedule']//article[1]")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
-    channelATags = page.xpath("//div[@class='svtTabMenu playChannelMenu']//a")
     channels = []
 
-    for a in channelATags:
-        url = URL_SITE + a.get("href")
-        thumb = a.get("data-thumbnail")
-        Log(thumb)
-        if not "http" in thumb:
-            thumb = URL_SITE + thumb
-        title = a.get("title")
+    for show in shows:
+        channel = show.get("data-channel")
+        url = URL_CHANNELS + '/' + channel
+        desc = show.get("data-description")
+        thumb = show.get("data-titlepage-poster")
+        if thumb == None:
+            thumb = URL_SITE + thumbBase % channel
+
+        title = show.get("data-title")
+        airing = show.xpath(".//time/text()")[0]
+
+        if 'svt' in channel:
+            channel = channel.upper()
+        else:
+            channel = channel.capitalize()
+
         show = EpisodeObject(
                 url = url,
-                title = title,
+                title = channel + " - " + title + ' (' + airing + ')',
+                summary = desc,
                 thumb = thumb)
         channels.append(show)
     return channels
