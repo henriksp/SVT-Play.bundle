@@ -21,7 +21,6 @@ TEXT_TITLE = u'SVT Play'
 TEXT_PREFERENCES = u'Inställningar'
 TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
-TEXT_CHANNELS = u'Kanaler'
 
 #The max number of episodes to get per show
 MAX_EPISODES = 1000
@@ -59,7 +58,6 @@ def MainMenu():
     menu = ObjectContainer(title1=TEXT_TITLE + " " + VERSION)
     menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
     menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
-    menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS, thumb=R('main_live.png')))
     menu.add(DirectoryObject(
         key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(
@@ -160,11 +158,11 @@ def GetLatestShows(prevTitle):
     epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
-def GetChannels(prevTitle):
+def GetChannels():
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
     channelATags = page.xpath("//div[@class='svtTabMenu playChannelMenu']//a")
-    channels = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
+    channels = []
 
     for a in channelATags:
         url = URL_SITE + a.get("href")
@@ -174,13 +172,18 @@ def GetChannels(prevTitle):
                 url = url,
                 title = title,
                 thumb = thumb)
-        channels.add(show)
+        channels.append(show)
     return channels
 
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
     liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
+
+    channels = GetChannels()
+    for c in channels:
+        showsList.add(c)
+
     for a in liveshows:
         url = a.xpath("@href")[0]
         url = URL_SITE + url
