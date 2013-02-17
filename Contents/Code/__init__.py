@@ -166,7 +166,10 @@ def GetChannels():
 
     for a in channelATags:
         url = URL_SITE + a.get("href")
-        thumb = URL_SITE + (thumbBase % (a.get("data-channel")))
+        thumb = a.get("data-thumbnail")
+        Log(thumb)
+        if not "http" in thumb:
+            thumb = URL_SITE + thumb
         title = a.get("title")
         show = EpisodeObject(
                 url = url,
