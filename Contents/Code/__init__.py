@@ -8,6 +8,7 @@ URL_INDEX = URL_SITE + "/program"
 URL_LIVE = URL_SITE + "/?tab=live&sida=1"
 URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
+URL_CHANNELS = URL_SITE + "/kanaler"
 #Texts
 TEXT_LIVE_SHOWS = u'Livesändningar'
 TEXT_INDEX_SHOWS = u'Program A-Ö'
@@ -140,10 +141,44 @@ def GetLatestShows(prevTitle):
     epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
+def GetChannels():
+    page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
+    shows = page.xpath("//div[@class='playChannelSchedule']//article[1]")
+    thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
+    channels = []
+
+    for show in shows:
+        channel = show.get("data-channel")
+        url = URL_CHANNELS + '/' + channel
+        desc = show.get("data-description")
+        thumb = show.get("data-titlepage-poster")
+        if thumb == None:
+            thumb = URL_SITE + thumbBase % channel
+
+        title = show.get("data-title")
+        airing = show.xpath(".//time/text()")[0]
+
+        if 'svt' in channel:
+            channel = channel.upper()
+        else:
+            channel = channel.capitalize()
+
+        show = EpisodeObject(
+                url = url,
+                title = channel + " - " + title + ' (' + airing + ')',
+                summary = desc,
+                thumb = thumb)
+        channels.append(show)
+    return channels
+
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime=0)
     liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
+
+    channels = GetChannels()
+    for c in channels:
+        showsList.add(c)
 
     for a in liveshows:
         url = a.get("href")
