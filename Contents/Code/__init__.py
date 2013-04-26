@@ -77,7 +77,7 @@ def GetIndexShows(prevTitle):
     for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
         showsList.add(s)
 
-    Thread.Create(HarvestShowData, programLinks = programLinks)
+    #Thread.Create(HarvestShowData, programLinks = programLinks)
     return showsList
 
 #This function wants a <a>..</a> tag list
