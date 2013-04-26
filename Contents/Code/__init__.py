@@ -15,6 +15,7 @@ URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
 #Texts
+TEXT_CHANNELS = u'Kanaler'
 TEXT_LIVE_SHOWS = u'Livesändningar'
 TEXT_INDEX_SHOWS = u'Program A-Ö'
 TEXT_TITLE = u'SVT Play'
@@ -57,6 +58,8 @@ def Start():
 def MainMenu():
     menu = ObjectContainer(title1=TEXT_TITLE + " " + VERSION)
     menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
+    menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS,
+        thumb=R('main_kanaler.png')))
     menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
     menu.add(DirectoryObject(
         key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
@@ -158,14 +161,16 @@ def GetLatestShows(prevTitle):
     epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
-def GetChannels():
+def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
     shows = page.xpath("//div[@class='playChannelSchedule']//article[1]")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
-    channels = []
+    channelsList = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
 
     for show in shows:
         channel = show.get("data-channel")
+        if channel == None:
+            continue
         url = URL_CHANNELS + '/' + channel
         desc = show.get("data-description")
         thumb = show.get("data-titlepage-poster")
@@ -185,17 +190,13 @@ def GetChannels():
                 title = channel + " - " + title + ' (' + airing + ')',
                 summary = desc,
                 thumb = thumb)
-        channels.append(show)
-    return channels
+        channelsList.add(show)
+    return channelsList
 
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime = 0)
     liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
-
-    channels = GetChannels()
-    for c in channels:
-        showsList.add(c)
 
     for a in liveshows:
         url = a.xpath("@href")[0]
