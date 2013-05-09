@@ -4,7 +4,7 @@ import string
 
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="5"
+VERSION="6"
 PLUGIN_PREFIX	= "/video/svt"
 
 #URLs
@@ -14,6 +14,9 @@ URL_LIVE = URL_SITE + "/?tab=live&sida=1"
 URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
+#Öppet arkiv
+URL_OA_SITE = "http://www.oppetarkiv.se"
+URL_OA_INDEX = "http://www.oppetarkiv.se/kategori/titel"
 #Texts
 TEXT_CHANNELS = u'Kanaler'
 TEXT_LIVE_SHOWS = u'Livesändningar'
@@ -22,6 +25,7 @@ TEXT_TITLE = u'SVT Play'
 TEXT_PREFERENCES = u'Inställningar'
 TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
+TEXT_OA = u"Öppet arkiv"
 
 #The max number of episodes to get per show
 MAX_EPISODES = 1000
@@ -61,6 +65,7 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS,
         thumb=R('main_kanaler.png')))
     menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
+    menu.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=TEXT_TITLE), title=TEXT_OA, thumb=R('main_index.png')))
     menu.add(DirectoryObject(
         key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(
@@ -262,6 +267,86 @@ def GetEpisodeObject(url):
     except:
         Log(VERSION)
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
+
+
+#------------OPEN ARCHIVE FUNCTIONS ---------------------
+def GetOAIndex(prevTitle):
+    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_OA)
+    pageElement = HTML.ElementFromURL(URL_OA_INDEX)
+    programLinks = pageElement.xpath("//a[@class='svt-text-default']")
+    for s in CreateOAShowList(programLinks, TEXT_OA):
+        showsList.add(s)
+    return showsList
+
+def CreateOAShowList(programLinks, parentTitle=None):
+    showsList = []
+    for l in programLinks:
+        try:
+            showUrl = l.get("href")
+            Log("ÖA: showUrl: " + showUrl)
+            showName = string.strip(l.xpath("text()")[0])
+            Log("ÖA: showName: " + showName)
+            show = DirectoryObject()
+            show.title = showName
+            show.key = Callback(GetOAShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
+            showsList.append(show)
+        except:
+            Log(VERSION)
+            pass
+
+    return showsList
+
+def GetOAShowEpisodes(prevTitle, showUrl, showName):
+    episodes = ObjectContainer()
+    pageElement = HTML.ElementFromURL(showUrl)
+    epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
+    for url in epUrls:
+        eo = GetOAEpisodeObject(url)
+        if eo != None:
+            episodes.add(eo)
+    return episodes
+
+def GetOAEpisodeObject(url):
+    try:
+        page= HTML.ElementFromURL(url)
+
+        show = None
+        title = page.xpath('//meta[@property="og:title"]/@content')[0].split(' | ')[0].replace('&amp;', '&')
+        title = String.DecodeHTMLEntities(title)
+
+        if ' - ' in title:
+            (show, title) = title.split(' - ', 1)
+
+        summary = page.xpath('//meta[@property="og:description"]/@content')[0].replace('&amp;', '&')
+        summary = String.DecodeHTMLEntities(summary)
+        thumb = page.xpath('//meta[@property="og:image"]/@content')[0].replace('/small/', '/large/')
+
+        try:
+            air_date = page.xpath("//span[@class='svt-video-meta']//time/@datetime")[0].split('T')[0]
+            air_date = Datetime.ParseDate(air_date).date()
+        except:
+            air_date = None
+
+        try:
+            duration = page.xpath("//a[@id='player']/@data-length")
+            duration = int(duration[0]) * 1000
+        except:
+            duration = None
+            pass
+
+        return EpisodeObject(
+                url = url,
+                show = show,
+                title = title,
+                summary = summary,
+                art = thumb,
+                thumb = thumb,
+                duration = duration,
+                originally_available_at = air_date)
+
+    except:
+        Log(VERSION)
+        Log("Exception occurred parsing url " + url)
 
 #------------MISC FUNCTIONS ---------------------
 
