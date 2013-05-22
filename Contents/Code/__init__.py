@@ -69,7 +69,6 @@ def MainMenu():
         key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES,
         thumb=R('main_kategori.png')))
-    menu.add(PrefsObject(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
     Log(VERSION)
     return menu
 
@@ -361,17 +360,3 @@ def GetOAEpisodeObject(url):
         Log("Exception occurred parsing url " + url)
 
 #------------MISC FUNCTIONS ---------------------
-
-def ValidatePrefs():
-    Log("Validate prefs")
-    global MAX_EPISODES
-
-    try:
-         MAX_EPISODES = int(Prefs[PREF_MAX_EPISODES])
-    except ValueError:
-        pass
-
-    Log("max episodes %d" % MAX_EPISODES)
-
-def ReplaceSpecials(replaceString):
-    return replaceString.encode('utf-8')
