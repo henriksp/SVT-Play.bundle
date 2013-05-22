@@ -2,7 +2,7 @@
 
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="6"
+VERSION="7"
 PLUGIN_PREFIX	= "/video/svt"
 
 # URLs
@@ -24,9 +24,22 @@ TEXT_TITLE = u'SVT Play'
 TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
+TEXT_CATEGORIES = u"Kategorier"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
+
+categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
+              u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
+              u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport' }
+
+cat2thumb = {u'Barn':'category_barn.png', \
+             u'Dokumentär':'icon-default.png', \
+             u'Film & Drama':'category_film_och_drama.png', \
+             u'Kultur & Nöje':'category_kultur_och_noje.png', \
+             u'Nyheter':'category_nyheter.png', \
+             u'Samhälle & Fakta':'category_samhalle_och_fakta.png', \
+             u'Sport':'category_sport.png'}
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -54,9 +67,35 @@ def MainMenu():
         key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(
         key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
+    menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES,
+        thumb=R('main_kategori.png')))
     menu.add(PrefsObject(title=TEXT_PREFERENCES, thumb=R('icon-prefs.png')))
     Log(VERSION)
     return menu
+
+
+#------------ CATEGORY FUNCTIONS ---------------------
+
+def GetCategories(prevTitle):
+    catList = ObjectContainer(title1=prevTitle, title2=TEXT_CATEGORIES)
+    keys = categories.keys()
+    keys.sort()
+    for key in keys:
+        d = DirectoryObject(key=Callback(GetCategoryShows, key=key, prevTitle=TEXT_CATEGORIES), \
+                title=key, thumb=R(cat2thumb[key]))
+        catList.add(d)
+
+    return catList
+
+def GetCategoryShows(prevTitle, key):
+    pageElement = HTML.ElementFromURL(URL_INDEX)
+    xpath = "//li[@data-category='%s']//a[@class='playAlphabeticLetterLink']" % categories[key]
+    programLinks = pageElement.xpath(xpath)
+    showsList = ObjectContainer(title1=prevTitle, title2=key)
+    for s in CreateShowList(programLinks, key):
+        showsList.add(s)
+
+    return showsList
 
 #------------ SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle):
