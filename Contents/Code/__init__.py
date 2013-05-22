@@ -29,6 +29,13 @@ TEXT_CATEGORIES = u"Kategorier"
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
 
+CACHE_1H = 60 * 60
+CACHE_1DAY = CACHE_1H * 24
+CACHE_30DAYS = CACHE_1DAY * 30
+
+SHOW_SUM = "showsum"
+DICT_V = 0
+
 categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
               u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
               u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport' }
@@ -51,6 +58,25 @@ def Start():
 
     HTTP.CacheTime = 600
 
+    if not "version" in Dict:
+        Log("No version number in dict, resetting")
+        Dict.Reset()
+        Dict["version"] = DICT_V
+        Dict.Save()
+
+    if Dict["version"] != DICT_V:
+        Log("Wrong version number in dict, resetting")
+        Dict.Reset()
+        Dict["version"] = DICT_V
+        Dict.Save()
+
+    if not SHOW_SUM in Dict:
+        Log("No summary dictionary, creating")
+        Dict[SHOW_SUM] = {}
+        Dict.Save()
+
+    Thread.Create(HarvestShowData)
+
 # Menu builder methods
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 @handler('/video/svt', TEXT_TITLE, thumb=ICON, art=ART)
@@ -70,6 +96,7 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES,
         thumb=R('main_kategori.png')))
     Log(VERSION)
+
     return menu
 
 
@@ -106,7 +133,6 @@ def GetIndexShows(prevTitle):
     for s in CreateShowList(programLinks, TEXT_INDEX_SHOWS):
         showsList.add(s)
 
-    #Thread.Create(HarvestShowData, programLinks = programLinks)
     return showsList
 
 # This function wants a <a>..</a> tag list
@@ -122,41 +148,58 @@ def CreateShowList(programLinks, parentTitle=None):
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
             show.thumb = R(ICON)
-            show.summary = GetShowSummary(showUrl, showName)
-
+            show.summary = GetShowSummary(showName)
             showsList.append(show)
+
         except: 
             Log("Error creating show: "+programLink.get("href"))
             pass
 
     return showsList     
 
-def GetShowSummary(url, showName):
-
-    sumExt = ".summary"
-    showSumSave = showName + sumExt
-
-    if Data.Exists(showSumSave):
-        return unicode(Data.LoadObject(showSumSave))
-
+def GetShowSummary(showName):
+    d = Dict[SHOW_SUM]
+    showName = unicode(showName)
+    if showName in d:
+        return d[showName][1]
     return ""
 
-def HarvestShowData(programLinks):
+def HarvestShowData():
 
-    sumExt = ".summary"
+    pageElement = HTML.ElementFromURL(URL_INDEX)
+    programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
 
     for programLink in programLinks:
         try:
             showURL = URL_SITE + programLink.get("href")
-            showName = programLink.xpath("./text()")[0].strip()
-            pageElement = HTML.ElementFromURL(showURL, cacheTime=CACHE_1DAY)
+            showName = unicode(programLink.xpath("./text()")[0].strip())
+
+            d = Dict[SHOW_SUM]
+            if showName in d:
+                td = Datetime.Now() - d[showName][2]
+                if td.days < 30:
+                    Log("Got cached data for %s" % showName)
+                    continue
+            else:
+                Log("no hit for %s" % showName)
+
+            pageElement = HTML.ElementFromURL(showURL)
             sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
 	    
+            summary = ""
             if (len(sum) > 0):
-                showSumSave = showName + sumExt
-                Data.SaveObject(showSumSave, sum[0])
+                summary = unicode(sum[0])
+
+            t = Datetime.TimestampFromDatetime(Datetime.Now())
+            d[showName] = (showName, summary, Datetime.Now())
+
+            #To prevent this thread from stealing too much network time
+            #we force it to sleep for every new page it loads
+            Dict[SHOW_SUM] = d
+            Dict.Save()
+            Thread.Sleep(1)
         except:
-            Log("Error harvesting show data: "+programLink.get("href"))
+            Log("Error harvesting show data: " + programLink.get('href'))
             pass
 
 def MakeShowContainer(epUrls, title1="", title2=""):
