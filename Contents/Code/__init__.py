@@ -34,7 +34,7 @@ CACHE_1DAY = CACHE_1H * 24
 CACHE_30DAYS = CACHE_1DAY * 30
 
 SHOW_SUM = "showsum"
-DICT_V = 0
+DICT_V = 1
 
 categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
               u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
@@ -47,6 +47,15 @@ cat2thumb = {u'Barn':'category_barn.png', \
              u'Nyheter':'category_nyheter.png', \
              u'Samhälle & Fakta':'category_samhalle_och_fakta.png', \
              u'Sport':'category_sport.png'}
+
+cat2url= {u'Barn':'/ajax/program?category=kids', \
+             u'Dokumentär':'/ajax/program?category=documentary', \
+             u'Film & Drama':'/ajax/program?category=filmAndDrama', \
+             u'Kultur & Nöje':'/ajax/program?category=cultureAndEntertainment', \
+             u'Nyheter':'/ajax/program?category=news', \
+             u'Regionala':'/ajax/program?category=regionalNews', \
+             u'Samhälle & Fakta':'/ajax/program?category=societyAndFacts', \
+             u'Sport':'/ajax/program?category=sport'}
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -147,10 +156,9 @@ def CreateShowList(programLinks, parentTitle=None):
             show = DirectoryObject()
             show.title = showName
             show.key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
-            show.thumb = R(ICON)
+            show.thumb = GetShowImgUrl(showName)
             show.summary = GetShowSummary(showName)
             showsList.append(show)
-
         except: 
             Log("Error creating show: "+programLink.get("href"))
             pass
@@ -163,6 +171,13 @@ def GetShowSummary(showName):
     if showName in d:
         return d[showName][1]
     return ""
+
+def GetShowImgUrl(showName):
+    d = Dict[SHOW_SUM]
+    showName = unicode(showName)
+    if showName in d:
+        return d[showName][3]
+    return None
 
 def HarvestShowData():
 
@@ -184,14 +199,36 @@ def HarvestShowData():
                 Log("no hit for %s" % showName)
 
             pageElement = HTML.ElementFromURL(showURL)
+
+            #Find the summary for the show
             sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
-	    
             summary = ""
             if (len(sum) > 0):
                 summary = unicode(sum[0])
 
+            imgUrl = ""
+            try:
+                #Find the image for the show
+                category = pageElement.xpath("//div[@class='playCategoryInfo']/p/a/text()")[0]
+                Log(category)
+                url = URL_SITE + cat2url[category] + "&antal=1000"
+                Log(url)
+                pe = HTML.ElementFromURL(url)
+                imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
+                # Regional News has it's own category for images but not in the general view on the page
+                if len(imgUrl) == 0 and category == "Nyheter":
+                    url = URL_SITE + cat2url["Regionala"] + "&antal=1000"
+                    pe = HTML.ElementFromURL(url)
+                    imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
+                imgUrl = imgUrl[0]
+            except:
+                Log("Error looking for image for show %s" % showName)
+                pass
+
+            # I need to unicode it to save it in the Dict
+            imgUrl = unicode(imgUrl)
             t = Datetime.TimestampFromDatetime(Datetime.Now())
-            d[showName] = (showName, summary, Datetime.Now())
+            d[showName] = (showName, summary, Datetime.Now(), imgUrl)
 
             #To prevent this thread from stealing too much network time
             #we force it to sleep for every new page it loads
