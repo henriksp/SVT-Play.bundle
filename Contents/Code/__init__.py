@@ -278,7 +278,7 @@ def GetLatestShows(prevTitle):
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
-    shows = page.xpath("//div[@class='playChannelSchedule']//article[1]")
+    shows = page.xpath("//div[contains(concat(' ',@class,' '),' playJsSchedule-SelectedEntry ')]")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
     channelsList = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
 
