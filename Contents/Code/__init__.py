@@ -211,13 +211,13 @@ def HarvestShowData():
                 #Find the image for the show
                 category = pageElement.xpath("//div[@class='playCategoryInfo']/p/a/text()")[0]
                 Log(category)
-                url = URL_SITE + cat2url[category] + "&antal=1000"
+                url = URL_SITE + cat2url[category] + "&antal=500"
                 Log(url)
                 pe = HTML.ElementFromURL(url)
                 imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
                 # Regional News has it's own category for images but not in the general view on the page
                 if len(imgUrl) == 0 and category == "Nyheter":
-                    url = URL_SITE + cat2url["Regionala"] + "&antal=1000"
+                    url = URL_SITE + cat2url["Regionala"] + "&antal=500"
                     pe = HTML.ElementFromURL(url)
                     imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
                 imgUrl = imgUrl[0]
@@ -249,7 +249,7 @@ def MakeShowContainer(epUrls, title1="", title2=""):
 
     return epList
 
-def GetEpisodeUrls(showUrl=None, maxEp=1000):
+def GetEpisodeUrls(showUrl=None, maxEp=500):
 
     suffix = "sida=1&antal=%d" % maxEp
     page = HTML.ElementFromURL(showUrl)
