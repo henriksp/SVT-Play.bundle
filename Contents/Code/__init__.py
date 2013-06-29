@@ -13,6 +13,7 @@ URL_LIVE = URL_SITE + "/?tab=live&sida=1"
 URL_LATEST_SHOWS = URL_SITE + "/?tab=episodes&sida=1"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
+URL_PROGRAMS = URL_SITE + "/ajax/program.json"
 #Öppet arkiv
 URL_OA_SITE = "http://www.oppetarkiv.se"
 URL_OA_INDEX = "http://www.oppetarkiv.se/kategori/titel"
@@ -181,9 +182,9 @@ def GetShowImgUrl(showName):
     return None
 
 def HarvestShowData():
-
     pageElement = HTML.ElementFromURL(URL_INDEX)
     programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
+    json_obj = JSON.ObjectFromURL(URL_PROGRAMS)
 
     for programLink in programLinks:
         try:
@@ -202,32 +203,22 @@ def HarvestShowData():
             pageElement = HTML.ElementFromURL(showURL)
 
             #Find the summary for the show
-            sum = pageElement.xpath("//div[@class='playVideoInfo']/span[2]/text()")
+            sum = pageElement.xpath("//div[@class='playBoxConnectedToVideoAside playJsShowMoreSubContainer']/p/text()")
             summary = ""
             if (len(sum) > 0):
-                summary = unicode(sum[0])
+                summary = unicode(sum[0].strip())
 
             imgUrl = ""
             try:
-                #Find the image for the show
-                category = pageElement.xpath("//div[@class='playCategoryInfo']/p/a/text()")[0]
-                Log(category)
-                url = URL_SITE + cat2url[category] + "&antal=500"
-                Log(url)
-                pe = HTML.ElementFromURL(url)
-                imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
-                # Regional News has it's own category for images but not in the general view on the page
-                if len(imgUrl) == 0 and category == "Nyheter":
-                    url = URL_SITE + cat2url["Regionala"] + "&antal=500"
-                    pe = HTML.ElementFromURL(url)
-                    imgUrl = pe.xpath("//article[@data-title='%s']//img/@data-imagename" % showName)
-                imgUrl = imgUrl[0]
+                print json_obj
+                for show in json_obj:
+                    if showName == show['title']:
+                        # I need to unicode it to save it in the Dict
+                        imgUrl = unicode(show['thumbnail'])
             except:
                 Log("Error looking for image for show %s" % showName)
                 pass
 
-            # I need to unicode it to save it in the Dict
-            imgUrl = unicode(imgUrl)
             t = Datetime.TimestampFromDatetime(Datetime.Now())
             d[showName] = (showName, summary, Datetime.Now(), imgUrl)
 
