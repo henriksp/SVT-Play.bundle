@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*
+import re, htmlentitydefs
 
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -327,15 +328,15 @@ def GetEpisodeObject(url):
        page = HTML.ElementFromURL(url)
 
        show = page.xpath("//h1[@class='playVideoBoxHeadline-Inner']/text()")[0]
-       title = page.xpath("//div[@class='playVideoInfo']//h2/text()")[0]
-       description = page.xpath("//div[@class='playVideoInfo']/p/text()")[0].strip()
+       title = unescapeHTML(page.xpath('//meta[@property="og:title"]/@content')[0].split(' | ')[0])
+       description = unescapeHTML(page.xpath('//meta[@property="og:description"]/@content')[0])
 
        try:
-           air_date = page.xpath("//div[@class='playVideoInfo']//time")[0].get("datetime")
+           air_date = page.xpath("//div[@class='playBoxConnectedToVideoMain']//time")[0].get("datetime")
            air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
            air_date = Datetime.ParseDate(air_date)
        except:
-           Log.Exception("Error converting airdate: " + air_date)
+           Log.Exception("Error converting airdate")
            air_date = None
 
        try:
@@ -440,3 +441,23 @@ def GetOAEpisodeObject(url):
         Log("Exception occurred parsing url " + url)
 
 #------------MISC FUNCTIONS ---------------------
+def unescapeHTML(text):
+    def fixup(m):
+        text = m.group(0)
+        if text[:2] == "&#":
+            # character reference
+            try:
+                if text[:3] == "&#x":
+                    return unichr(int(text[3:-1], 16))
+                else:
+                    return unichr(int(text[2:-1]))
+            except ValueError:
+                pass
+        else:
+            # named entity
+            try:
+                text = unichr(htmlentitydefs.name2codepoint[text[1:-1]])
+            except KeyError:
+                pass
+        return text # leave as is
+    return re.sub("&#?\w+;", fixup, text)
