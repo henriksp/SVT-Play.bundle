@@ -133,7 +133,7 @@ def GetCategoryShows(prevTitle, key):
     return showsList
 
 #------------ SHOW FUNCTIONS ---------------------
-def GetIndexShows(prevTitle):
+def GetIndexShows(prevTitle="", query=None):
 
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_INDEX_SHOWS)
     pageElement = HTML.ElementFromURL(URL_INDEX)
