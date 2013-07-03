@@ -27,8 +27,9 @@ TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
-TEXT_INDEX_ALL = u'Alla Program'
-TEXT_SEARCH_SHOW = u"Sök Program"
+TEXT_SEARCH_SHOW = u"Sök program"
+TEXT_SEARCH_RESULT = u"Sökresultat"
+TEXT_SEARCH_FAIL = u"Hittade inga sökresultat för '%s'."
 TEXT_CLIP = u"Klipp"
 
 ART = 'art-default.jpg'
@@ -109,8 +110,6 @@ def MainMenu():
         key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES,
         thumb=R('main_kategori.png')))
-    menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL,
-        thumb=R('icon-default.png')))
     menu.add(InputDirectoryObject(key=Callback(SearchShow),title = TEXT_SEARCH_SHOW, prompt=TEXT_SEARCH_SHOW,
         thumb = R('search.png')))
 
@@ -142,27 +141,21 @@ def GetCategoryShows(prevTitle, key):
 
     return showsList
 
-#------------ SHOW FUNCTIONS ---------------------
-def GetAllIndex(prevTitle):
-
-    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_ALL)
-    indexPageElement = HTML.ElementFromURL(URL_INDEX)
-    indexProgramLinks = indexPageElement.xpath("//a[@class='playAlphabeticLetterLink']")
-    for s in CreateShowList(indexProgramLinks, TEXT_INDEX_ALL):
-        showsList.add(s)
-
-    oaPageElement = HTML.ElementFromURL(URL_OA_INDEX)
-    oaProgramLinks = oaPageElement.xpath("//a[@class='svt-text-default']")
-    for p in CreateOAShowList(oaProgramLinks, TEXT_INDEX_ALL):
-        showsList.add(p)
-    showsList.objects.sort(key=lambda obj: obj.title)
-    return showsList
+def GetAllShowsCombined():
+    svt = GetIndexShows("")
+    oa = GetOAIndex("")
+    list = []
+    for s in svt.objects:
+        list.append(s)
+    for s in oa.objects:
+        list.append(s)
+    return list
 
 #------------ SEARCH ---------------------
 def SearchShow (query):
     query = unicode(query)
-    oc = ObjectContainer(title1='SVT-Play', title2='Search Results')
-    for video in GetAllIndex('Searching').objects:
+    oc = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_RESULT)
+    for video in GetAllShowsCombined():
         if len(query) == 1 and query.lower() == video.title[0].lower():
             # In case of single character - only compare initial character.
             oc.add(video)
@@ -171,8 +164,8 @@ def SearchShow (query):
 
     if len(oc) == 0:
         return MessageContainer(
-            "Search results",
-            "Did not find any result for '%s'" % query
+            TEXT_SEARCH_SHOW,
+            TEXT_SEARCH_FAIL % query,
             )
     else:
         return oc
