@@ -29,6 +29,7 @@ TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
 TEXT_SEARCH_SHOW = u"Sök Program"
+TEXT_CLIP = u"Klipp"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -272,9 +273,9 @@ def HarvestShowData():
             Log("Error harvesting show data: " + programLink.get('href'))
             pass
 
-def MakeShowContainer(epUrls, title1="", title2="", sort = 0):
-    epList      = ObjectContainer(title1=title1, title2=title2)
+def MakeShowContainer(epUrls, title1="", title2="", sort=False):
     resultList  = ObjectContainer(title1=title1, title2=title2)
+    epList      = ObjectContainer()
     clipUrls    = []
 
     for epUrl in epUrls:
@@ -282,23 +283,25 @@ def MakeShowContainer(epUrls, title1="", title2="", sort = 0):
             clipUrls.append(epUrl)
         elif "/video" in epUrl:
             epList.add(GetEpisodeObject(epUrl))
-            
-    if sort == 1:
+
+    if sort == True:
         sortOnAirData(epList)
-        if len(clipUrls) > 0:
-            clip       = DirectoryObject()
-            clip.title = "Klipp"
-            clip.key   = Callback(ReturnClips,urls=clipUrls,title1=title1,title2=title2)
-            clip.thumb = R(ICON)
-            clip.art   = R(ART)
-            resultList.add(clip)
-            for ep in epList.objects:
-                resultList.add(ep)
-            return resultList
-        else:
-            return epList
-    else:
-        return epList
+
+    for ep in epList.objects:
+        resultList.add(ep)
+
+    if len(clipUrls) > 0:
+        resultList.add(MakeClipsContainer(clipUrls, title2))
+
+    return resultList
+
+def MakeClipsContainer(clipUrls, title1):
+    clip       = DirectoryObject()
+    clip.title = TEXT_CLIP
+    clip.key   = Callback(ReturnClips,urls=clipUrls,title1=title1, title2=TEXT_CLIP)
+    clip.thumb = R(ICON)
+    clip.art   = R(ART)
+    return clip
 
 def ReturnClips(urls=None, title1="", title2=""):
     clipList = ObjectContainer(title1=title1, title2=title2)
@@ -336,7 +339,7 @@ def GetShowUrlsHelp(url):
 
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     epUrls = GetShowUrls(showUrl)
-    return MakeShowContainer(epUrls, prevTitle, showName, 1)
+    return MakeShowContainer(epUrls, prevTitle, showName, False)
 
 def GetLatestNews(prevTitle):
     epUrls = GetShowUrls(showUrl=URL_LATEST_NEWS, maxEp=15, addClips=False)
