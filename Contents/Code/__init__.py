@@ -436,19 +436,6 @@ def GetEpisodeObject(url):
     except:
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
 
-def duration2sec(durationList):
-    i   = 0
-    sec = 0
-    while (i < len(durationList)):
-        if durationList[i+1] == "h":
-            sec = sec + (int(durationList[i]) * 3600)
-        elif durationList[i+1] == "min":
-            sec = sec + (int(durationList[i]) * 60)
-        elif durationList[i+1] == "sek":
-            sec = sec + int(durationList[i])
-        i = i + 2
-    return int(sec)
-
 #------------OPEN ARCHIVE FUNCTIONS ---------------------
 def GetOAIndex(prevTitle):
     showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_OA)
@@ -555,3 +542,16 @@ def sortOnAirData(Objects):
         if obj.originally_available_at == None:
             return Objects.objects.reverse()
     return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title))
+
+def duration2sec(durationList):
+    i   = 0
+    sec = 0
+    while (i < len(durationList)):
+        if durationList[i+1] == "h":
+            sec = sec + (int(durationList[i]) * 3600)
+        elif durationList[i+1] == "min":
+            sec = sec + (int(durationList[i]) * 60)
+        elif durationList[i+1] == "sek":
+            sec = sec + int(durationList[i])
+        i = i + 2
+    return int(sec)
