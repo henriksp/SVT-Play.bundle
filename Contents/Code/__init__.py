@@ -27,6 +27,8 @@ TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
+TEXT_INDEX_ALL = u'Alla Program'
+TEXT_SEARCH_SHOW = u"Sök Program"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -106,6 +108,11 @@ def MainMenu():
         key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES,
         thumb=R('main_kategori.png')))
+    menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL,
+        thumb=R('icon-default.png')))
+    menu.add(InputDirectoryObject(key=Callback(SearchShow),title = TEXT_SEARCH_SHOW, prompt=TEXT_SEARCH_SHOW,
+        thumb = R('search.png')))
+
     Log(VERSION)
 
     return menu
@@ -135,8 +142,42 @@ def GetCategoryShows(prevTitle, key):
     return showsList
 
 #------------ SHOW FUNCTIONS ---------------------
-def GetIndexShows(prevTitle="", query=None):
+def GetAllIndex(prevTitle):
 
+    showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_INDEX_ALL)
+    indexPageElement = HTML.ElementFromURL(URL_INDEX)
+    indexProgramLinks = indexPageElement.xpath("//a[@class='playAlphabeticLetterLink']")
+    for s in CreateShowList(indexProgramLinks, TEXT_INDEX_ALL):
+        showsList.add(s)
+
+    oaPageElement = HTML.ElementFromURL(URL_OA_INDEX)
+    oaProgramLinks = oaPageElement.xpath("//a[@class='svt-text-default']")
+    for p in CreateOAShowList(oaProgramLinks, TEXT_INDEX_ALL):
+        showsList.add(p)
+    showsList.objects.sort(key=lambda obj: obj.title)
+    return showsList
+
+#------------ SEARCH ---------------------
+def SearchShow (query):
+    query = unicode(query)
+    oc = ObjectContainer(title1='SVT-Play', title2='Search Results')
+    for video in GetAllIndex('Searching').objects:
+        if len(query) == 1 and query.lower() == video.title[0].lower():
+            # In case of single character - only compare initial character.
+            oc.add(video)
+        elif len(query) > 1 and query.lower() in video.title.lower():
+            oc.add(video)
+
+    if len(oc) == 0:
+        return MessageContainer(
+            "Search results",
+            "Did not find any result for '%s'" % query
+            )
+    else:
+        return oc
+
+#------------ SHOW FUNCTIONS ---------------------
+def GetIndexShows(prevTitle):
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_INDEX_SHOWS)
     pageElement = HTML.ElementFromURL(URL_INDEX)
     programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
@@ -231,42 +272,79 @@ def HarvestShowData():
             Log("Error harvesting show data: " + programLink.get('href'))
             pass
 
-def MakeShowContainer(epUrls, title1="", title2=""):
-
-    epList = ObjectContainer(title1=title1, title2=title2)
+def MakeShowContainer(epUrls, title1="", title2="", sort = 0):
+    epList      = ObjectContainer(title1=title1, title2=title2)
+    resultList  = ObjectContainer(title1=title1, title2=title2)
+    clipUrls    = []
 
     for epUrl in epUrls:
-        epObj = GetEpisodeObject(epUrl)
-        epList.add(epObj)
+        if "/klipp" in epUrl:
+            clipUrls.append(epUrl)
+        elif "/video" in epUrl:
+            epList.add(GetEpisodeObject(epUrl))
+            
+    if sort == 1:
+        sortOnAirData(epList)
+        if len(clipUrls) > 0:
+            clip       = DirectoryObject()
+            clip.title = "Klipp"
+            clip.key   = Callback(ReturnClips,urls=clipUrls,title1=title1,title2=title2)
+            clip.thumb = R(ICON)
+            clip.art   = R(ART)
+            resultList.add(clip)
+            for ep in epList.objects:
+                resultList.add(ep)
+            return resultList
+        else:
+            return epList
+    else:
+        return epList
 
-    return epList
+def ReturnClips(urls=None, title1="", title2=""):
+    clipList = ObjectContainer(title1=title1, title2=title2)
+    for url in urls:
+        clipList.add(GetEpisodeObject(url))
+    sortOnAirData(clipList)
+    return clipList
 
-def GetEpisodeUrls(showUrl=None, maxEp=500):
+def GetShowUrls(showUrl=None, maxEp=500, addClips=True):
 
     suffix = "sida=1&antal=%d" % maxEp
-    page = HTML.ElementFromURL(showUrl)
-    link = page.xpath("//a[@class='playShowMoreButton playButton ']/@data-baseurl")
+    page   = HTML.ElementFromURL(showUrl)
+    link   = page.xpath("//a[@class='playShowMoreButton playButton ']/@data-baseurl")
 
-    if len(link) > 0 and 'klipp' not in link[0]: #If we can find the page with all episodes in, use it
-        epPageUrl = URL_SITE + link[0] + suffix
-        epPage = HTML.ElementFromURL(epPageUrl)
-        epUrls = epPage.xpath("//div[@class='playDisplayTable']/a/@href")
+    # If we can find the page with all episodes in, use it
+    if len(link) > 0 and '/klipp' not in link[0]: 
+        epUrls = GetShowUrlsHelp(URL_SITE + link[0] + suffix)
+        i = 1;
+        while (i < len(link)):
+            if addClips and '/klipp' in link[i]:
+                epUrls = epUrls + GetShowUrlsHelp(URL_SITE + link[i] + suffix)
+            i = i + 1
     else: #Use the episodes on the base page
         epUrls = page.xpath("//div[@class='playDisplayTable']/a/@href")
 
-    return [URL_SITE + url for url in epUrls if "video" in url]
+    if addClips:
+        return ([URL_SITE + url for url in epUrls if "/video" in url] +
+                [URL_SITE + url for url in epUrls if "/klipp" in url])
+    else:
+        return [URL_SITE + url for url in epUrls if "/video" in url]
+
+def GetShowUrlsHelp(url):
+    epPage = HTML.ElementFromURL(url)
+    return epPage.xpath("//div[@class='playDisplayTable']/a/@href")
 
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
-    epUrls = GetEpisodeUrls(showUrl)
-    return MakeShowContainer(epUrls, prevTitle, showName)
+    epUrls = GetShowUrls(showUrl)
+    return MakeShowContainer(epUrls, prevTitle, showName, 1)
 
 def GetLatestNews(prevTitle):
-    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_NEWS, maxEp=15)
+    epUrls = GetShowUrls(showUrl=URL_LATEST_NEWS, maxEp=15, addClips=False)
     return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLatestShows(prevTitle):
-    epUrls = GetEpisodeUrls(showUrl=URL_LATEST_SHOWS, maxEp=30)
-    return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_NEWS)
+    epUrls = GetShowUrls(showUrl=URL_LATEST_SHOWS, maxEp=30, addClips=False)
+    return MakeShowContainer(epUrls, prevTitle, TEXT_LATEST_SHOWS)
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
@@ -331,8 +409,11 @@ def GetEpisodeObject(url):
            air_date = None
 
        try:
-           duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
-           duration = int(duration) * 60 * 1000 #millisecs
+           if "klipp" in url:
+               duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[2].split()
+           else:
+               duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()
+           duration = duration2sec(duration) * 1000 #millisecs
        except:
            duration = None
 
@@ -351,6 +432,19 @@ def GetEpisodeObject(url):
 
     except:
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
+
+def duration2sec(durationList):
+    i   = 0
+    sec = 0
+    while (i < len(durationList)):
+        if durationList[i+1] == "h":
+            sec = sec + (int(durationList[i]) * 3600)
+        elif durationList[i+1] == "min":
+            sec = sec + (int(durationList[i]) * 60)
+        elif durationList[i+1] == "sek":
+            sec = sec + int(durationList[i])
+        i = i + 2
+    return int(sec)
 
 #------------OPEN ARCHIVE FUNCTIONS ---------------------
 def GetOAIndex(prevTitle):
@@ -452,3 +546,9 @@ def unescapeHTML(text):
                 pass
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
+
+def sortOnAirData(Objects):
+    for obj in Objects.objects:
+        if obj.originally_available_at == None:
+            return Objects.objects.reverse()
+    return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title))
