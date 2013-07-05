@@ -458,12 +458,20 @@ def CreateOAShowList(programLinks, parentTitle=None):
 
 def GetOAShowEpisodes(prevTitle, showUrl, showName):
     episodes = ObjectContainer()
-    pageElement = HTML.ElementFromURL(showUrl)
-    epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
-    for url in epUrls:
-        eo = GetOAEpisodeObject(url)
-        if eo != None:
-            episodes.add(eo)
+    suffix = "?sida=%d&sort=tid_stigande&embed=true"
+    i = 1
+    morePages = True
+    while morePages:
+        pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
+        epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
+        for url in epUrls:
+            eo = GetOAEpisodeObject(url)
+            if eo != None:
+                episodes.add(eo)
+        nextPage = pageElement.xpath("//a[@data-target='.svtoa-js-searchlist']")
+        i = i + 1
+        if len(nextPage) == 0:
+            morePages = False
     return episodes
 
 def GetOAEpisodeObject(url):
