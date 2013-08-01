@@ -2,8 +2,8 @@
 import re, htmlentitydefs, datetime, urllib
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION="7"
-PLUGIN_PREFIX              = "/video/svt"
+VERSION = "7"
+PLUGIN_PREFIX = "/video/svt"
 
 # URLs
 URL_SITE = "http://www.svtplay.se"
@@ -14,22 +14,22 @@ URL_LATEST_CLIPS = URL_SITE + "/?tab=clips&sida=4"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/program.json"
-#Ãppet arkiv
+#Öppet arkiv
 URL_OA_SITE = "http://www.oppetarkiv.se"
 URL_OA_INDEX = "http://www.oppetarkiv.se/kategori/titel"
 #Texts
 TEXT_CHANNELS = u'Kanaler'
-TEXT_LIVE_SHOWS = u'LivesÃ¤ndningar'
-TEXT_INDEX_SHOWS = u'Program A-Ã'
-TEXT_PREFERENCES = u'InstÃ¤llningar'
+TEXT_LIVE_SHOWS = u'Livesändningar'
+TEXT_INDEX_SHOWS = u'Program A-Ö'
+TEXT_PREFERENCES = u'Inställningar'
 TEXT_TITLE = u'SVT Play'
 TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
-TEXT_OA = u"Ãppet arkiv"
+TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
-TEXT_SEARCH_SHOW = u"SÃ¶k Program"
-TEXT_SEARCH_ONLINE = u"SÃ¶k Online"
+TEXT_SEARCH_SHOW = u"Sök Program"
+TEXT_SEARCH_ONLINE = u"Sök Online"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -41,25 +41,25 @@ CACHE_30DAYS = CACHE_1DAY * 30
 SHOW_SUM = "showsum"
 DICT_V = 1
 
-categories = {u'Barn':'barn', u'DokumentÃ¤r':'dokumentar', u'Film & Drama':'filmochdrama', \
-              u'Kultur & NÃ¶je':'kulturochnoje', u'Nyheter':'nyheter', \
-              u'SamhÃ¤lle & Fakta':'samhalleochfakta', u'Sport':'sport'}
+categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
+              u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
+              u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
 
 cat2thumb = {u'Barn':'category_barn.png', \
-             u'DokumentÃ¤r':'icon-default.png', \
+             u'Dokumentär':'icon-default.png', \
              u'Film & Drama':'category_film_och_drama.png', \
-             u'Kultur & NÃ¶je':'category_kultur_och_noje.png', \
+             u'Kultur & Nöje':'category_kultur_och_noje.png', \
              u'Nyheter':'category_nyheter.png', \
-             u'SamhÃ¤lle & Fakta':'category_samhalle_och_fakta.png', \
+             u'Samhälle & Fakta':'category_samhalle_och_fakta.png', \
              u'Sport':'category_sport.png'}
 
 cat2url= {u'Barn':'/ajax/program?category=kids', \
-             u'DokumentÃ¤r':'/ajax/program?category=documentary', \
+             u'Dokumentär':'/ajax/program?category=documentary', \
              u'Film & Drama':'/ajax/program?category=filmAndDrama', \
-             u'Kultur & NÃ¶je':'/ajax/program?category=cultureAndEntertainment', \
+             u'Kultur & Nöje':'/ajax/program?category=cultureAndEntertainment', \
              u'Nyheter':'/ajax/program?category=news', \
              u'Regionala':'/ajax/program?category=regionalNews', \
-             u'SamhÃ¤lle & Fakta':'/ajax/program?category=societyAndFacts', \
+             u'Samhälle & Fakta':'/ajax/program?category=societyAndFacts', \
              u'Sport':'/ajax/program?category=sport'}
 
 # Initializer called by the framework
@@ -687,9 +687,9 @@ def CreateOAShowList(programLinks, parentTitle=None):
     for l in programLinks:
         try:
             showUrl = l.get("href")
-            Log("ÃA: showUrl: " + showUrl)
+            Log("ÖA: showUrl: " + showUrl)
             showName = (l.xpath("text()")[0]).strip()
-            Log("ÃA: showName: " + showName)
+            Log("ÖA: showName: " + showName)
             show = DirectoryObject()
             show.title = showName
             show.key = Callback(GetOAShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
