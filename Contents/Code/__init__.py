@@ -462,8 +462,7 @@ def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
 
 def GetLatestNews(prevTitle):
-    (epPageFound, epUrl, clipPageFound, clipUrl) = GetShowUrls(showUrl=URL_LATEST_NEWS, maxEp=15, addClips=False)
-    return MakeShowContainer(epUrl, prevTitle, TEXT_LATEST_NEWS, epPageFound)
+    return MakeShowContainer(URL_LATEST_NEWS, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLatestShows(prevTitle):
     (epPageFound, epUrl, dummyClipPageFound, dummyClipUrl) = GetShowUrls(showUrl=URL_LATEST_SHOWS, maxEp=30, addClips=False)
