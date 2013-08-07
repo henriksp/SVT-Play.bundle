@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*
-import re, htmlentitydefs, datetime, urllib
+import re, htmlentitydefs, datetime
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 VERSION = "7"
@@ -33,6 +33,7 @@ TEXT_SEARCH_ONLINE = u"Sök Online"
 TEXT_RECOMMENDED = u"Rekommenderat"
 TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
+TEXT_CLIPS = u"Klipp"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -66,7 +67,7 @@ cat2url= {u'Barn':'/ajax/program?category=kids', \
              u'Sport':'/ajax/program?category=sport'}
 
 # Initializer called by the framework
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def Start():
 
     ObjectContainer.art = R(ART)
@@ -384,79 +385,68 @@ def HarvestShowData():
             Log("Error harvesting show data: " + programLink.get('href'))
             pass
 
-def MakeShowContainer(epUrl, title1="", title2="", epPageFound = True, clipPageFound = False, clipUrl = "", sort = False):
-    epList      = ObjectContainer(title1=title1, title2=title2)
-    resultList  = ObjectContainer(title1=title1, title2=title2)
-    i           = 0 
-    clipFound   = False
+def MakeShowContainer(showUrl, title1="", title2="", sort=False):
+    epList = ObjectContainer(title1=title1, title2=title2)
+    (epsUrl, clipsUrl, epUrls, clipUrls) = GetShowUrls(showUrl)
 
-    if epPageFound:
-        (epList, dummyClipFound) = GetEpsFromEpPage(epList, epUrl, sort)
-        if not clipPageFound and clipUrl != "":
-            clipPage = HTML.ElementFromURL(clipUrl)
-            pageUrls = clipPage.xpath("//div[@class='playDisplayTable']/a/@href")
-            for u in pageUrls:
-                if "/klipp" in u:
-                    clipFound = True
-                    break
+    if clipsUrl:
+        clips = DirectoryObject(key=Callback(GetAjaxClipsContainer, clipUrl=clipsUrl, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
+        epList.add(clips)
     else:
-        (epList, clipFound) = GetEpsFromEpPage(epList, epUrl, sort, "/video")
-    if not clipPageFound and not clipFound:
-        clipUrl = ""
-    if sort:
-        sortOnAirData(epList)
-    if len(clipUrl) > 0:
-        key  = Callback(ReturnClips,url=clipUrl,title1=title2,title2=title2+" - Klipp",clipPageFound=clipPageFound,sort=sort)
-        resultList.add(CreateDirObject("Klipp", key))
-        for ep in epList.objects:
-            resultList.add(ep)
-        return resultList
-    else:
-        return epList
+        clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrls=clipUrls, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
+        epList.add(clips)
 
-def ReturnClips(url, title1="", title2="",clipPageFound=False, sort = False):
+    if epsUrl:
+        for epObj in GetEpisodeObjects(epsUrl, title2):
+            epList.add(epObj)
+    else:
+        for url in epUrls:
+            epObj = GetEpisodeObject(url)
+            epList.add(epObj)
+
+    return epList
+
+def GetAjaxClipsContainer(clipUrl, title1, title2, sort=False):
     clipList = ObjectContainer(title1=title1, title2=title2)
-    i = 0
-    if clipPageFound:
-        (clipList, dummyClipFound) = GetEpsFromEpPage(clipList, url, sort) 
-    else:
-        (clipList, dummyClipFound) = GetEpsFromEpPage(clipList, url, sort, "/klipp") 
-    if sort:
-        sortOnAirData(clipList)
+    for clipObj in GetEpisodeObjects(clipUrl, title1):
+        clipList.add(clipObj)
+
     return clipList
 
-def GetShowUrls(showUrl=None, maxEp=500, addClips=True):
+def GetClipsContainer(clipUrls, title1, title2):
+    clipList = ObjectContainer(title1=title1, title2=title2)
+    for url in clipUrls:
+        clipObj = GetEpisodeObject(url)
+        clipList.add(clipObj)
+    return clipList
 
+def GetShowUrls(showUrl=None, maxEp=500):
     suffix        = "sida=1&antal=%d" % maxEp
     page          = HTML.ElementFromURL(showUrl)
-    link          = page.xpath("//a[@class='playShowMoreButton playButton ']/@data-baseurl")
-    clipUrl       = ""
-    epPageFound   = False
-    clipPageFound = False
+    ajaxLinks     = page.xpath("//div[@class='playBoxContainer']//a/@data-baseurl")
+    links         = page.xpath("//div[@class='playDisplayTable']/a/@href")
+    epAjaxUrl = None
+    clipAjaxUrl = None
+    epUrls = []
+    clipUrls = []
 
-    # If we can find the page with all episodes in, use it
-    if len(link) > 0 and '/klipp' not in link[0] and '/live' not in link[0]: 
-        epPageFound = True
-        epUrl = URL_SITE + link[0] + suffix
-    else: #Use the episodes on the base page
-        Log("[JTDEBUG] show misses episodes page:%s" % showUrl)
-        epUrl = showUrl
+    for link in ajaxLinks:
+        if "/videos?" in link:
+            epAjaxUrl = URL_SITE + link + suffix
 
-    i = 0
-    clipUrl = showUrl
-    while (addClips and i < len(link)):
-        if '/klipp' in link[i]:
-            clipPageFound = True
-            clipUrl = URL_SITE + link[i] + suffix
-        i = i + 1
+        elif "/klipp?" in link:
+            clipAjaxUrl = URL_SITE + link + suffix
 
-    if addClips:
-        result = (epPageFound, epUrl, clipPageFound, clipUrl)
-    else:
-        result = (epPageFound, epUrl, False, "")
+        elif "/live" in link:
+            Log("No handling for live links here at the moment")
 
-    Log("[JTDEBUG] GetShowUrls result %d %s %s %s" % result)
-    return result
+    for link in links:
+        if "/video" in link:
+            epUrls.append(URL_SITE + link)
+        elif "/klipp" in link:
+            clipUrls.append(URL_SITE + link)
+
+    return (epAjaxUrl, clipAjaxUrl, epUrls, clipUrls)
 
 def GetNumberOfEpisodes(url):
     epPage = HTML.ElementFromURL(url)
@@ -467,8 +457,7 @@ def GetRecommendedEpisodes(prevTitle=None):
     return MakeShowContainer(epUrl, prevTitle, "Rekommenderat", epPageFound, clipPageFound, clipUrl, False)
 
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
-    (epPageFound, epUrl, clipPageFound, clipUrl) = GetShowUrls(showUrl)
-    return MakeShowContainer(epUrl, prevTitle, showName, epPageFound, clipPageFound, clipUrl, True)
+    return MakeShowContainer(showUrl, prevTitle, showName, True)
 
 def GetLatestNews(prevTitle):
     (epPageFound, epUrl, clipPageFound, clipUrl) = GetShowUrls(showUrl=URL_LATEST_NEWS, maxEp=15, addClips=False)
@@ -522,7 +511,7 @@ def GetLiveShows(prevTitle):
 
     return showsList
 
-def GetLiveEpisodeObject(url):
+def GetEpisodeObject(url):
     try:
        page = HTML.ElementFromURL(url)
 
@@ -561,53 +550,44 @@ def GetLiveEpisodeObject(url):
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
 
 #------------ EPISODE FUNCTIONS ---------------------
-def GetEpsFromEpPage(resultList, epPageUrl, stripShow, urlFilter = None):
-    episodes = GetNumberOfEpisodes(epPageUrl)
-    page = HTML.ElementFromURL(epPageUrl)
-    return GetMetaData(resultList, page, episodes, stripShow, urlFilter)
+def GetEpisodeObjects(epsUrl, showName):
+    resultList = []
+    page = HTML.ElementFromURL(epsUrl)
+    articles = page.xpath("//article")
 
-def GetMetaData(resultList, page, episodes, stripShow, urlFilter):
-    clipUrlFound = False
-    urls = page.xpath("//div[@class='playDisplayTable']/a/@href")
-    titles = page.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]/@data-title")
-    descriptions = page.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]/@data-description")
-    air_dates1 = page.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]/@data-broadcasted")
-    air_dates2 = page.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]/@data-published")
-    durations = page.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]/@data-length")
-    thumbs =  page.xpath("//img[@class='playGridThumbnail']/@src")
-    i=0
-    while (i < episodes):
-        if urlFilter == None or urlFilter in urls[i*2]:
-            show = None
-            title = titles[i]
-            try:
-                if air_dates1[i] == None or air_dates1[i] == "":
-                    air_date = airDate2date(unicode(air_dates2[i]))
-                else:
-                    air_date = airDate2date(unicode(air_dates1[i]))
-            except:
-                air_date = None
-            tmp = title.split(" - ", 1)
-            if len(tmp) > 1:
-                show = tmp[0]
-                if stripShow:
-                    title = tmp[1]
-            resultList.add(EpisodeObject(
-                    url = URL_SITE + urls[i*2],
-                    show = show,
-                    title = title,
-                    summary = descriptions[i],
-                    duration = duration2millisec(durations[i].split()),
-                    thumb = thumbs[i],
-                    art = thumbs[i],
-                    originally_available_at = air_date))
-        elif "/klipp" in urls[i*2]:
-            clipUrlFound = True
-        i = i + 1
-    return (resultList, clipUrlFound)
+    for article in articles:
+        url = article.xpath("./div[@class='playDisplayTable']/a[contains(concat(' ', @class, ' '), ' playLink ')]/@href")[0]
+        url = URL_SITE + url
+        show = showName
+        title = article.get("data-title")
+        summary = article.get("data-description")
+        duration = dataLength2millisec(article.get("data-length"))
+        thumb = article.xpath(".//img/@data-imagename")[0]
+        art = thumb
 
-def duration2millisec(durationList):
-    i   = 0
+        try:
+           air_date = article.xpath(".//time/@datetime")[0]
+           air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
+           air_date = Datetime.ParseDate(air_date)
+        except:
+           Log.Exception("Error converting airdate")
+           air_date = None
+
+        resultList.append(EpisodeObject(
+            url = url,
+            show = show,
+            title = title,
+            summary = summary,
+            duration = duration,
+            thumb = thumb,
+            art = art,
+            originally_available_at = air_date))
+
+    return resultList
+
+def dataLength2millisec(dataLength):
+    durationList = dataLength.split()
+    i = 0
     sec = 0
     if len(durationList) > 1:
         while (i < len(durationList)):
@@ -619,6 +599,7 @@ def duration2millisec(durationList):
                 sec = sec + int(durationList[i])
             i = i + 2
         return int(sec) * 1000
+
     elif durationList == []:
         return None
     else:
