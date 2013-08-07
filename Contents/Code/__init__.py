@@ -31,6 +31,8 @@ TEXT_INDEX_ALL = u'Alla Program'
 TEXT_SEARCH_SHOW = u"Sök Program"
 TEXT_SEARCH_ONLINE = u"Sök Online"
 TEXT_RECOMMENDED = u"Rekommenderat"
+TEXT_SEARCH_RESULT = u"Sökresultat"
+TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -178,8 +180,8 @@ def SearchOnline (query):
 
     if typeHits == 0:
         return MessageContainer(
-            "Search results",
-            "Did not find any result for '%s'" % query
+            TEXT_SEARCH_RESULT,
+            TEXT_SEARCH_RESULT_ERROR % query
             )
     else:
         result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE)
@@ -284,8 +286,8 @@ def SearchShow (query):
 
     if len(oc) == 0:
         return MessageContainer(
-            "Search results",
-            "Did not find any result for '%s'" % query
+            TEXT_SEARCH_RESULT,
+            TEXT_SEARCH_RESULT_ERROR % query
             )
     else:
         return oc
