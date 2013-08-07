@@ -47,7 +47,7 @@ DICT_V = 1
 
 categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
               u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
-              'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
+              u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
 
 cat2thumb = {u'Barn':'category_barn.png', \
              u'Dokumentär':'icon-default.png', \
