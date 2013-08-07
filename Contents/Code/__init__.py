@@ -605,53 +605,6 @@ def dataLength2millisec(dataLength):
     else:
         return int(durationList[0]) * 1000
 
-def airDate2date(dateString):
-    Log("JTDEBUG dateString %s" % dateString)
-    year  = datetime.datetime.now().year
-    month = datetime.datetime.now().month
-    day   = datetime.datetime.now().day
-    dateString = re.sub("[^0-9]*([0-9]+.+)", "\\1", dateString).split(' ')
-    Log("JTDEBUG dateString %s" % dateString)
-    if len(dateString) == 3:
-        (year, month, day) = convertFullAirDate(dateString)
-    elif len(dateString) == 2:
-        (month, day) = convertMonthAirDate(dateString)
-    return datetime.date(year, month, day)
-
-def convertFullAirDate(date):
-    (month, day) = convertMonthAirDate([date[0], date[1]])
-    return (int(date[2]), month, day)
-
-def convertMonthAirDate(date):
-    return (month2int(unicode(date[1]).lower()), int(date[0]))
-
-def month2int(month):
-
-    if month == "jan" or month == "januari":
-        return 1
-    elif month == "feb" or month == "februari":
-        return 2
-    elif month == "mar" or month == "mars":
-        return 3
-    elif month == "apr" or month == "april":
-        return 4
-    elif month == "maj" or month == "maj":
-        return 5
-    elif month == "jun" or month == "juni":
-        return 6
-    elif month == "jul" or month == "juli":
-        return 7
-    elif month == "aug" or month == "augusti":
-        return 8
-    elif month == "sep" or month == "september":
-        return 9
-    elif month == "okt" or month == "oktober":
-        return 10
-    elif month == "nov" or month == "november":
-        return 11
-    elif month == "dec" or month == "december":
-        return 12
-
 #------------OPEN ARCHIVE FUNCTIONS ---------------------
 def GetOAIndex(prevTitle):
     showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_OA)
@@ -737,6 +690,53 @@ def GetOAEpisodeObject(url):
     except:
         Log(VERSION)
         Log("Exception occurred parsing url " + url)
+
+def airDate2date(dateString):
+    Log("JTDEBUG dateString %s" % dateString)
+    year  = datetime.datetime.now().year
+    month = datetime.datetime.now().month
+    day   = datetime.datetime.now().day
+    dateString = re.sub("[^0-9]*([0-9]+.+)", "\\1", dateString).split(' ')
+    Log("JTDEBUG dateString %s" % dateString)
+    if len(dateString) == 3:
+        (year, month, day) = convertFullAirDate(dateString)
+    elif len(dateString) == 2:
+        (month, day) = convertMonthAirDate(dateString)
+    return datetime.date(year, month, day)
+
+def convertFullAirDate(date):
+    (month, day) = convertMonthAirDate([date[0], date[1]])
+    return (int(date[2]), month, day)
+
+def convertMonthAirDate(date):
+    return (month2int(unicode(date[1]).lower()), int(date[0]))
+
+def month2int(month):
+
+    if month == "jan" or month == "januari":
+        return 1
+    elif month == "feb" or month == "februari":
+        return 2
+    elif month == "mar" or month == "mars":
+        return 3
+    elif month == "apr" or month == "april":
+        return 4
+    elif month == "maj" or month == "maj":
+        return 5
+    elif month == "jun" or month == "juni":
+        return 6
+    elif month == "jul" or month == "juli":
+        return 7
+    elif month == "aug" or month == "augusti":
+        return 8
+    elif month == "sep" or month == "september":
+        return 9
+    elif month == "okt" or month == "oktober":
+        return 10
+    elif month == "nov" or month == "november":
+        return 11
+    elif month == "dec" or month == "december":
+        return 12
 
 #------------MISC FUNCTIONS ---------------------
 def unescapeHTML(text):
