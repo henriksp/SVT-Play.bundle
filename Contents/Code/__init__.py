@@ -43,7 +43,7 @@ DICT_V = 1
 
 categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
               u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
-              u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
+              'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
 
 cat2thumb = {u'Barn':'category_barn.png', \
              u'Dokumentär':'icon-default.png', \
@@ -646,6 +646,7 @@ def convertFullAirDate(date):
 
 def convertMonthAirDate(date):
     return (month2int(unicode(date[1]).lower()), int(date[0]))
+
 def month2int(month):
 
     if month == "jan" or month == "januari":
@@ -687,7 +688,7 @@ def CreateOAShowList(programLinks, parentTitle=None):
     for l in programLinks:
         try:
             showUrl = l.get("href")
-            Log("ÖA: showUrl: " + showUrl)
+            Log("ÖA: showUrl: " + showUrl)
             showName = (l.xpath("text()")[0]).strip()
             Log("ÖA: showName: " + showName)
             show = DirectoryObject()
