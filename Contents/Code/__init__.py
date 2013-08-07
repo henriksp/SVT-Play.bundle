@@ -30,6 +30,7 @@ TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
 TEXT_SEARCH_SHOW = u"Sök Program"
 TEXT_SEARCH_ONLINE = u"Sök Online"
+TEXT_RECOMMENDED = u"Rekommenderat"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -105,7 +106,7 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL, thumb=R('icon-default.png')))
     menu.add(DirectoryObject(key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
-    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title="Rekommenderat", thumb=R('main_rekommenderat.png')))
+    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title=TEXT_RECOMMENDED, thumb=R('main_rekommenderat.png')))
     menu.add(InputDirectoryObject(key=Callback(SearchShow),title = TEXT_SEARCH_SHOW, prompt=TEXT_SEARCH_SHOW, thumb = R('search.png')))
     menu.add(InputDirectoryObject(key=Callback(SearchOnline),title = TEXT_SEARCH_ONLINE, prompt=TEXT_SEARCH_ONLINE, thumb = R('search.png')))
 
