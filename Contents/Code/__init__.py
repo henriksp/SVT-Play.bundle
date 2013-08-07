@@ -218,9 +218,10 @@ def ReturnSearchHits(url, result, directoryTitle, createDirectory=False):
         result.add(CreateDirObject(directoryTitle, Callback(ReturnSearchHits,url=url, result=None, directoryTitle=directoryTitle)))
         return result
     else:
-        epList = MakeShowContainer(url, TEXT_TITLE, TEXT_SEARCH_ONLINE + " - " + directoryTitle, True)
-        sortOnAirData(epList)
-        epList.objects.sort(key=lambda obj: obj.show)
+        epList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE + " - " + directoryTitle)
+        for clipObj in GetEpisodeObjects(url, ""):
+            epList.add(clipObj)
+
         return epList
 
 def ReturnSearchOaHits(url, result, directoryTitle, createDirectory=False):
