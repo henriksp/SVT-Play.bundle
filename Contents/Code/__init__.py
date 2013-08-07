@@ -37,6 +37,7 @@ TEXT_RECOMMENDED = u"Rekommenderat"
 TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
 TEXT_CLIPS = u"Klipp"
+TEXT_EPISODES = u"Avsnitt"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -190,9 +191,9 @@ def SearchOnline (query):
     else:
         result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE)
         if episodeHits > 0:
-            result = ReturnSearchHits(episodeQuery, result, "Avsnitt", typeHits > 1)
+            result = ReturnSearchHits(episodeQuery, result, TEXT_EPISODES, typeHits > 1)
         if clipHits > 0:
-            result = ReturnSearchHits(clipQuery, result, "Klipp", typeHits > 1)
+            result = ReturnSearchHits(clipQuery, result, TEXT_CLIPS, typeHits > 1)
         if oaHits > 0:
             result = ReturnSearchOaHits(oaQuery, result, TEXT_OA, typeHits > 1)
         if showHits > 0:
