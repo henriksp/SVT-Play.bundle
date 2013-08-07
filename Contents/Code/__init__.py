@@ -14,7 +14,7 @@ URL_LATEST_CLIPS = URL_SITE + "/?tab=clips&sida=4"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/program.json"
-URL_RECOMMENDED = URL_SITE + "/?tab=recommended&sida=500"
+URL_RECOMMENDED = URL_SITE + "/?tab=recommended&sida=30"
 
 #Öppet arkiv
 URL_OA_SITE = "http://www.oppetarkiv.se"
@@ -389,16 +389,17 @@ def HarvestShowData():
             Log("Error harvesting show data: " + programLink.get('href'))
             pass
 
-def MakeShowContainer(showUrl, title1="", title2="", sort=False):
+def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, maxEps=500):
     epList = ObjectContainer(title1=title1, title2=title2)
-    (epsUrl, clipsUrl, epUrls, clipUrls) = GetShowUrls(showUrl)
+    (epsUrl, clipsUrl, epUrls, clipUrls) = GetShowUrls(showUrl, maxEp=maxEps)
 
-    if clipsUrl:
-        clips = DirectoryObject(key=Callback(GetAjaxClipsContainer, clipUrl=clipsUrl, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
-        epList.add(clips)
-    else:
-        clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrls=clipUrls, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
-        epList.add(clips)
+    if addClips:
+        if clipsUrl:
+            clips = DirectoryObject(key=Callback(GetAjaxClipsContainer, clipUrl=clipsUrl, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
+            epList.add(clips)
+        else:
+            clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrls=clipUrls, title1=title2, title2=TEXT_CLIPS), title=TEXT_CLIPS)
+            epList.add(clips)
 
     if epsUrl:
         for epObj in GetEpisodeObjects(epsUrl, title2):
@@ -424,7 +425,7 @@ def GetClipsContainer(clipUrls, title1, title2):
         clipList.add(clipObj)
     return clipList
 
-def GetShowUrls(showUrl=None, maxEp=500):
+def GetShowUrls(showUrl=None, maxEp=100):
     suffix        = "sida=1&antal=%d" % maxEp
     page          = HTML.ElementFromURL(showUrl)
     ajaxLinks     = page.xpath("//div[@class='playBoxContainer']//a/@data-baseurl")
@@ -457,16 +458,16 @@ def GetNumberOfEpisodes(url):
     return len(epPage.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]"))
 
 def GetRecommendedEpisodes(prevTitle=None):
-    return MakeShowContainer(URL_RECOMMENDED, prevTitle, TEXT_RECOMMENDED)
+    return MakeShowContainer(URL_RECOMMENDED, prevTitle, TEXT_RECOMMENDED, addClips=False, maxEps=30)
 
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
 
 def GetLatestNews(prevTitle):
-    return MakeShowContainer(URL_LATEST_NEWS, prevTitle, TEXT_LATEST_NEWS)
+    return MakeShowContainer(URL_LATEST_NEWS, prevTitle, TEXT_LATEST_NEWS, addClips=False, maxEps=15)
 
 def GetLatestShows(prevTitle):
-    return MakeShowContainer(URL_LATEST_SHOWS, prevTitle, TEXT_LATEST_SHOWS)
+    return MakeShowContainer(URL_LATEST_SHOWS, prevTitle, TEXT_LATEST_SHOWS, addClips=False, maxEps=15)
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
