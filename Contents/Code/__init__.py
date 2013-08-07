@@ -14,9 +14,12 @@ URL_LATEST_CLIPS = URL_SITE + "/?tab=clips&sida=4"
 URL_LATEST_NEWS = URL_SITE + "/?tab=news&sida=1"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/program.json"
+URL_RECOMMENDED = URL_SITE + "/?tab=recommended&sida=500"
+
 #Öppet arkiv
 URL_OA_SITE = "http://www.oppetarkiv.se"
 URL_OA_INDEX = "http://www.oppetarkiv.se/kategori/titel"
+
 #Texts
 TEXT_CHANNELS = u'Kanaler'
 TEXT_LIVE_SHOWS = u'Livesändningar'
@@ -453,11 +456,10 @@ def GetNumberOfEpisodes(url):
     return len(epPage.xpath("//article[contains(concat(' ',@class,' '),' svtUnit ')]"))
 
 def GetRecommendedEpisodes(prevTitle=None):
-    (epPageFound, epUrl, clipPageFound, clipUrl) = GetShowUrls("http://www.svtplay.se/?tab=recommended&sida=500",maxEp=500,addClips=False)
-    return MakeShowContainer(epUrl, prevTitle, "Rekommenderat", epPageFound, clipPageFound, clipUrl, False)
+    return MakeShowContainer(URL_RECOMMENDED, prevTitle, TEXT_RECOMMENDED)
 
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
-    return MakeShowContainer(showUrl, prevTitle, showName, True)
+    return MakeShowContainer(showUrl, prevTitle, showName)
 
 def GetLatestNews(prevTitle):
     (epPageFound, epUrl, clipPageFound, clipUrl) = GetShowUrls(showUrl=URL_LATEST_NEWS, maxEp=15, addClips=False)
@@ -556,7 +558,7 @@ def GetEpisodeObjects(epsUrl, showName):
     articles = page.xpath("//article")
 
     for article in articles:
-        url = article.xpath("./div[@class='playDisplayTable']/a[contains(concat(' ', @class, ' '), ' playLink ')]/@href")[0]
+        url = article.xpath("./div[@class='playDisplayTable']/a[contains(concat(' ', @class, ' '), 'playBoxWithClickArea')]/@href")[0]
         url = URL_SITE + url
         show = showName
         title = article.get("data-title")
