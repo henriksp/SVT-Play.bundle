@@ -465,8 +465,7 @@ def GetLatestNews(prevTitle):
     return MakeShowContainer(URL_LATEST_NEWS, prevTitle, TEXT_LATEST_NEWS)
 
 def GetLatestShows(prevTitle):
-    (epPageFound, epUrl, dummyClipPageFound, dummyClipUrl) = GetShowUrls(showUrl=URL_LATEST_SHOWS, maxEp=30, addClips=False)
-    return MakeShowContainer(epUrl, prevTitle, TEXT_LATEST_SHOWS, epPageFound, False, URL_LATEST_CLIPS)
+    return MakeShowContainer(URL_LATEST_SHOWS, prevTitle, TEXT_LATEST_SHOWS)
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
