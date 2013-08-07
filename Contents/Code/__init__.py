@@ -563,7 +563,7 @@ def GetEpisodeObjects(epsUrl, showName):
         url = URL_SITE + url
         show = showName
         title = article.get("data-title")
-        summary = article.get("data-description")
+        summary = unescapeHTML(article.get("data-description"))
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@data-imagename")[0]
         art = thumb
