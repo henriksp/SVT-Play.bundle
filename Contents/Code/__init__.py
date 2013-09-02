@@ -504,15 +504,49 @@ def GetChannels(prevTitle):
 
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime=0)
-    liveshows = page.xpath("//img[@class='playBroadcastLiveIcon']//../..")
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
+    liveshows = page.xpath("//a[contains(concat(' ', @class, ' '), 'playBroadcastBoxItem') and not(contains(concat(' ', @class, ' '), 'playBroadcastEnded'))]")
 
-    for a in liveshows:
+    for a in liveshows[0:2]:
         url = a.get("href")
         url = URL_SITE + url
-        showsList.add(GetLiveEpisodeObject(url))
+        showsList.add(GetLiveEpisodeObject(url, GetLiveShowTitle(a)))
 
     return showsList
+
+def GetLiveShowTitle(a):
+    times = a.xpath(".//time/text()")
+    timeText = " - ".join(times)
+    showName = a.xpath(".//div[@class='playBroadcastTitle']/text()")
+    if not showName:
+        showName = a.xpath(".//h1[@class='playH5']/text()")
+    return timeText + " " + showName[0]
+
+def GetLiveEpisodeObject(url, title):
+    page = HTML.ElementFromURL(url, cacheTime=0)
+    show = page.xpath("//h1[@class='playVideoBoxHeadline-Inner']/text()")[0]
+    description = unescapeHTML(page.xpath('//meta[@property="og:description"]/@content')[0])
+    duration = 0
+    thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
+
+    try:
+        air_date = page.xpath("//div[@class='playBoxConnectedToVideoMain']//time")[0].get("datetime")
+        air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
+        air_date = Datetime.ParseDate(air_date)
+    except:
+        Log.Exception("Error converting airdate")
+        air_date = None
+
+    return EpisodeObject(
+           url = url,
+           show = show,
+           title = title,
+           summary = description,
+           duration = duration,
+           thumb = thumb,
+           art = thumb,
+           originally_available_at = air_date
+           )
 
 def GetEpisodeObject(url):
     try:
