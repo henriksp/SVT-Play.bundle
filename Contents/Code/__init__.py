@@ -461,6 +461,7 @@ def GetNumberOfEpisodes(url):
 def GetRecommendedEpisodes(prevTitle=None):
     return MakeShowContainer(URL_RECOMMENDED, prevTitle, TEXT_RECOMMENDED, addClips=False, maxEps=30)
 
+@route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
 
