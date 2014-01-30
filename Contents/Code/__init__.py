@@ -13,7 +13,7 @@ URL_LATEST_SHOWS = URL_SITE + "/?tab=senasteprogram&sida=3"
 URL_LATEST_CLIPS = URL_SITE + "/?tab=senasteklipp&sida=4"
 URL_LATEST_NEWS = URL_SITE + "/?tab=senastenyhetsprogram&sida=3"
 URL_CHANNELS = URL_SITE + "/kanaler"
-URL_PROGRAMS = URL_SITE + "/ajax/program.json"
+URL_PROGRAMS = URL_SITE + "/ajax/sok/forslag.json"
 URL_RECOMMENDED = URL_SITE + "/?tab=rekommenderat&sida=3"
 
 #Öppet arkiv
