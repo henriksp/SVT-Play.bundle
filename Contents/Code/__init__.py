@@ -38,6 +38,7 @@ TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
 TEXT_CLIPS = u"Klipp"
 TEXT_EPISODES = u"Avsnitt"
+TEXT_SEASON = u"Säsong %s"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -675,21 +676,69 @@ def GetOAShowEpisodes(prevTitle, showUrl, showName):
     suffix = "?sida=%d&sort=tid_fallande&embed=true"
     i = 1
     morePages = True
+    seasons = []
+    # index 0 contains Season number - the rest of the indices contains urls to episodes of that season.
+    seasons_episodes = []
     while morePages:
         pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
         epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
         for url in epUrls:
-            eo = GetOAEpisodeObject(url)
-            if eo != None:
-                episodes.add(eo)
+            if "-sasong-" in url:
+                index = re.sub(".*-sasong-([0-9]+).*", "\\1", url)
+                if not index in seasons:
+                    # New Season - add it
+                    seasons.append(index)
+                    seasons_episodes.append([index])
+                    ep_index = len(seasons_episodes)-1
+                else:
+                    # Find index handling current season
+                    ep_index = 0
+                    for ix in seasons_episodes:
+                        if ix[0] == index:
+                            break
+                        ep_index += 1
+                seasons_episodes[ep_index].append(url)
+                continue
+            else:
+                eo = GetOAEpisodeObject(url)
+                if eo != None:
+                    episodes.add(eo)
         nextPage = pageElement.xpath("//a[@data-target='.svtoa-js-searchlist']")
         i = i + 1
         if len(nextPage) == 0:
             morePages = False
     sortOnAirData(episodes)
+
+    if len(seasons) > 0:
+        newOc = ObjectContainer(title1=prevTitle, title2=showName)
+        seasons_len = len(seasons)
+        seasons.sort(key=lambda obj: int(obj))
+        seasons_episodes.sort(key=lambda obj: int(obj[0]))
+        while seasons_len > 0:
+            newOc.add(DirectoryObject(key=Callback(GetOASeasonEpisode, urlList=seasons_episodes[seasons_len-1], prevTitle=prevTitle, showName=showName), title = TEXT_SEASON % str(seasons[seasons_len-1]), thumb=R(ICON)))
+            seasons_len = seasons_len - 1
+        for ep in episodes.objects:
+            newOc.add(ep)
+        return newOc
+
     return episodes
 
-def GetOAEpisodeObject(url):
+# @route(PLUGIN_PREFIX + '/GetOASeasonEpisode', 'GET')
+def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
+    episodes = ObjectContainer(title1=prevTitle, title2=showName+" - "+TEXT_SEASON % urlList[0])
+    skip=True
+    for url in urlList:
+        if skip:
+            skip = False
+            # First index contains season number
+            continue
+        eo = GetOAEpisodeObject(url, stripTitlePrefix=True)
+        if eo != None:
+            episodes.add(eo)
+    # sortOnAirData(episodes) - seems "offical" plugin don't want this...
+    return episodes
+
+def GetOAEpisodeObject(url, stripTitlePrefix=False):
     try:
         page= HTML.ElementFromURL(url)
 
@@ -699,6 +748,19 @@ def GetOAEpisodeObject(url):
 
         if ' - ' in title:
             (show, title) = title.split(' - ', 1)
+
+        if "-sasong-" in url:
+            season = int(re.sub(".+-sasong-([0-9]+).+", "\\1", url))
+        else:
+            season = None
+
+        if "-avsnitt-" in url:
+            episode = int(re.sub(".+-avsnitt-([0-9]+).+", "\\1", url))
+        else:
+            episode = None
+
+        if stripTitlePrefix and "Avsnitt" in title:
+            title = re.sub(".*(Avsnitt.+)", "\\1", title)
 
         summary = page.xpath('//meta[@property="og:description"]/@content')[0].replace('&amp;', '&')
         summary = String.DecodeHTMLEntities(summary)
@@ -723,6 +785,8 @@ def GetOAEpisodeObject(url):
                 art = thumb,
                 thumb = thumb,
                 duration = duration,
+                season = season,
+                index = episode,
                 originally_available_at = air_date)
 
     except:
@@ -730,12 +794,10 @@ def GetOAEpisodeObject(url):
         Log("Exception occurred parsing url " + url)
 
 def airDate2date(dateString):
-    Log("JTDEBUG dateString %s" % dateString)
     year  = datetime.datetime.now().year
     month = datetime.datetime.now().month
     day   = datetime.datetime.now().day
     dateString = re.sub("[^0-9]*([0-9]+.+)", "\\1", dateString).split(' ')
-    Log("JTDEBUG dateString %s" % dateString)
     if len(dateString) == 3:
         (year, month, day) = convertFullAirDate(dateString)
     elif len(dateString) == 2:
