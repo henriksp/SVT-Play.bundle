@@ -31,8 +31,7 @@ TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
-TEXT_SEARCH_SHOW = u"Sök Program"
-TEXT_SEARCH_ONLINE = u"Sök Online"
+TEXT_SEARCH = u"Sök"
 TEXT_RECOMMENDED = u"Rekommenderat"
 TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
@@ -115,9 +114,7 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title=TEXT_RECOMMENDED, thumb=R('main_rekommenderat.png')))
-    menu.add(InputDirectoryObject(key=Callback(SearchShow),title = TEXT_SEARCH_SHOW, prompt=TEXT_SEARCH_SHOW, thumb = R('search.png')))
-    menu.add(InputDirectoryObject(key=Callback(SearchOnline),title = TEXT_SEARCH_ONLINE, prompt=TEXT_SEARCH_ONLINE, thumb = R('search.png')))
-
+    menu.add(InputDirectoryObject(key=Callback(Search),title = TEXT_SEARCH, prompt=TEXT_SEARCH, thumb = R('search.png')))
     Log(VERSION)
 
     return menu
@@ -163,14 +160,27 @@ def GetAllIndex(prevTitle):
     return showsList
 
 #------------ SEARCH ---------------------
-def SearchOnline (query):
+@route(PLUGIN_PREFIX + '/Search', 'GET')
+def Search (query):
+    if len(query) == 1:
+        oc = SearchShowTitle(query)
+        if len(oc) > 0:
+            return oc
+        else:
+            return MessageContainer(
+                TEXT_SEARCH_RESULT,
+                TEXT_SEARCH_RESULT_ERROR % query
+                )
+
+    orgQuery = query
     query = String.Quote(query.replace(' ', '+'))
 
     showQuery    = "http://www.svtplay.se/ajax/sok/program?q="+query+"&antal=500"
     episodeQuery = "http://www.svtplay.se/ajax/sok/avsnitt?q="+query+"&antal=500"
     clipQuery    = "http://www.svtplay.se/ajax/sok/klipp?q="+query+"&antal=500"
     oaQuery      = "http://www.oppetarkiv.se/sok/?q="+query+"&embed=true"
-    showHits     = GetNumberOfEpisodes(showQuery)
+    showOc       = SearchShowTitle(orgQuery)
+    showHits     = GetNumberOfEpisodes(showQuery) + len(showOc)
     episodeHits  = GetNumberOfEpisodes(episodeQuery)
     clipHits     = GetNumberOfEpisodes(clipQuery)
     oaHits       = len(HTML.ElementFromURL(oaQuery).xpath("//figure[@class='svtMediaBlockFig-M']"))
@@ -187,10 +197,10 @@ def SearchOnline (query):
     if typeHits == 0:
         return MessageContainer(
             TEXT_SEARCH_RESULT,
-            TEXT_SEARCH_RESULT_ERROR % query
+            TEXT_SEARCH_RESULT_ERROR % orgQuery
             )
     else:
-        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE)
+        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
         if episodeHits > 0:
             result = ReturnSearchHits(episodeQuery, result, TEXT_EPISODES, typeHits > 1)
         if clipHits > 0:
@@ -198,10 +208,10 @@ def SearchOnline (query):
         if oaHits > 0:
             result = ReturnSearchOaHits(oaQuery, result, TEXT_OA, typeHits > 1)
         if showHits > 0:
-            result = ReturnSearchShows(showQuery, result)
+            result = ReturnSearchShows(showQuery, result, showOc)
         return result
 
-def ReturnSearchShows(url, result):
+def ReturnSearchShows(url, result, showOc=[]):
     showHits  = GetNumberOfEpisodes(url)
     showPage  = HTML.ElementFromURL(url)
     urls      = showPage.xpath("//div[@class='playDisplayTable']/a/@href")
@@ -210,8 +220,15 @@ def ReturnSearchShows(url, result):
     while (i < showHits):
         name = titles[i]
         key = Callback(GetShowEpisodes, prevTitle=TEXT_TITLE, showUrl=URL_SITE+urls[i*2], showName=name)
-        result.add(CreateShowDirObject(name, key))
+        showOc.add(CreateShowDirObject(name, key))
         i = i+1
+    showOc.objects.sort(key=lambda obj: obj.title)
+    # Add unique Shows to result
+    previousTitle = None
+    for show in showOc.objects:
+        if show.title != previousTitle:
+            previousTitle = show.title
+            result.add(show)
     return result
 
 def ReturnSearchHits(url, result, directoryTitle, createDirectory=False):
@@ -230,7 +247,7 @@ def ReturnSearchOaHits(url, result, directoryTitle, createDirectory=False):
         result.add(CreateDirObject(directoryTitle, Callback(ReturnSearchOaHits,url=url, result=None, directoryTitle=directoryTitle)))
         return result
     else:
-        oaList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE + " - " + directoryTitle)
+        oaList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " - " + directoryTitle)
         i = 1
         morePages = True
         while morePages:
@@ -281,9 +298,9 @@ def CreateDirObject(name, key, thumb=R(ICON), summary=None):
 def CreateShowDirObject(name, key):
     return CreateDirObject(name, key, GetShowImgUrl(name), GetShowSummary(name))
 
-def SearchShow (query):
+def SearchShowTitle (query):
     query = unicode(query)
-    oc = ObjectContainer(title1=TEXT_TITLE, title2='Search Show Results')
+    oc = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
     for video in GetAllIndex('Searching').objects:
         if len(query) == 1 and query.lower() == video.title[0].lower():
             # In case of single character - only compare initial character.
@@ -291,13 +308,7 @@ def SearchShow (query):
         elif len(query) > 1 and query.lower() in video.title.lower():
             oc.add(video)
 
-    if len(oc) == 0:
-        return MessageContainer(
-            TEXT_SEARCH_RESULT,
-            TEXT_SEARCH_RESULT_ERROR % query
-            )
-    else:
-        return oc
+    return oc
 
 #------------ SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle="", query=None):
@@ -638,7 +649,6 @@ def dataLength2millisec(dataLength):
                 sec = sec + int(durationList[i])
             i = i + 2
         return int(sec) * 1000
-
     elif durationList == []:
         return None
     else:
