@@ -31,13 +31,13 @@ TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
-TEXT_SEARCH_SHOW = u"Sök Program"
-TEXT_SEARCH_ONLINE = u"Sök Online"
+TEXT_SEARCH = u"Sök"
 TEXT_RECOMMENDED = u"Rekommenderat"
 TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
 TEXT_CLIPS = u"Klipp"
 TEXT_EPISODES = u"Avsnitt"
+TEXT_SEASON = u"Säsong %s"
 
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
@@ -114,9 +114,7 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title=TEXT_RECOMMENDED, thumb=R('main_rekommenderat.png')))
-    menu.add(InputDirectoryObject(key=Callback(SearchShow),title = TEXT_SEARCH_SHOW, prompt=TEXT_SEARCH_SHOW, thumb = R('search.png')))
-    menu.add(InputDirectoryObject(key=Callback(SearchOnline),title = TEXT_SEARCH_ONLINE, prompt=TEXT_SEARCH_ONLINE, thumb = R('search.png')))
-
+    menu.add(InputDirectoryObject(key=Callback(Search),title = TEXT_SEARCH, prompt=TEXT_SEARCH, thumb = R('search.png')))
     Log(VERSION)
 
     return menu
@@ -162,14 +160,27 @@ def GetAllIndex(prevTitle):
     return showsList
 
 #------------ SEARCH ---------------------
-def SearchOnline (query):
+@route(PLUGIN_PREFIX + '/Search', 'GET')
+def Search (query):
+    if len(query) == 1:
+        oc = SearchShowTitle(query)
+        if len(oc) > 0:
+            return oc
+        else:
+            return MessageContainer(
+                TEXT_SEARCH_RESULT,
+                TEXT_SEARCH_RESULT_ERROR % query
+                )
+
+    orgQuery = query
     query = String.Quote(query.replace(' ', '+'))
 
     showQuery    = "http://www.svtplay.se/ajax/sok/program?q="+query+"&antal=500"
     episodeQuery = "http://www.svtplay.se/ajax/sok/avsnitt?q="+query+"&antal=500"
     clipQuery    = "http://www.svtplay.se/ajax/sok/klipp?q="+query+"&antal=500"
     oaQuery      = "http://www.oppetarkiv.se/sok/?q="+query+"&embed=true"
-    showHits     = GetNumberOfEpisodes(showQuery)
+    showOc       = SearchShowTitle(orgQuery)
+    showHits     = GetNumberOfEpisodes(showQuery) + len(showOc)
     episodeHits  = GetNumberOfEpisodes(episodeQuery)
     clipHits     = GetNumberOfEpisodes(clipQuery)
     oaHits       = len(HTML.ElementFromURL(oaQuery).xpath("//figure[@class='svtMediaBlockFig-M']"))
@@ -186,10 +197,10 @@ def SearchOnline (query):
     if typeHits == 0:
         return MessageContainer(
             TEXT_SEARCH_RESULT,
-            TEXT_SEARCH_RESULT_ERROR % query
+            TEXT_SEARCH_RESULT_ERROR % orgQuery
             )
     else:
-        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE)
+        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
         if episodeHits > 0:
             result = ReturnSearchHits(episodeQuery, result, TEXT_EPISODES, typeHits > 1)
         if clipHits > 0:
@@ -197,10 +208,10 @@ def SearchOnline (query):
         if oaHits > 0:
             result = ReturnSearchOaHits(oaQuery, result, TEXT_OA, typeHits > 1)
         if showHits > 0:
-            result = ReturnSearchShows(showQuery, result)
+            result = ReturnSearchShows(showQuery, result, showOc)
         return result
 
-def ReturnSearchShows(url, result):
+def ReturnSearchShows(url, result, showOc=[]):
     showHits  = GetNumberOfEpisodes(url)
     showPage  = HTML.ElementFromURL(url)
     urls      = showPage.xpath("//div[@class='playDisplayTable']/a/@href")
@@ -209,8 +220,15 @@ def ReturnSearchShows(url, result):
     while (i < showHits):
         name = titles[i]
         key = Callback(GetShowEpisodes, prevTitle=TEXT_TITLE, showUrl=URL_SITE+urls[i*2], showName=name)
-        result.add(CreateShowDirObject(name, key))
+        showOc.add(CreateShowDirObject(name, key))
         i = i+1
+    showOc.objects.sort(key=lambda obj: obj.title)
+    # Add unique Shows to result
+    previousTitle = None
+    for show in showOc.objects:
+        if show.title != previousTitle:
+            previousTitle = show.title
+            result.add(show)
     return result
 
 def ReturnSearchHits(url, result, directoryTitle, createDirectory=False):
@@ -229,7 +247,7 @@ def ReturnSearchOaHits(url, result, directoryTitle, createDirectory=False):
         result.add(CreateDirObject(directoryTitle, Callback(ReturnSearchOaHits,url=url, result=None, directoryTitle=directoryTitle)))
         return result
     else:
-        oaList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH_ONLINE + " - " + directoryTitle)
+        oaList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " - " + directoryTitle)
         i = 1
         morePages = True
         while morePages:
@@ -280,9 +298,9 @@ def CreateDirObject(name, key, thumb=R(ICON), summary=None):
 def CreateShowDirObject(name, key):
     return CreateDirObject(name, key, GetShowImgUrl(name), GetShowSummary(name))
 
-def SearchShow (query):
+def SearchShowTitle (query):
     query = unicode(query)
-    oc = ObjectContainer(title1=TEXT_TITLE, title2='Search Show Results')
+    oc = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
     for video in GetAllIndex('Searching').objects:
         if len(query) == 1 and query.lower() == video.title[0].lower():
             # In case of single character - only compare initial character.
@@ -290,13 +308,7 @@ def SearchShow (query):
         elif len(query) > 1 and query.lower() in video.title.lower():
             oc.add(video)
 
-    if len(oc) == 0:
-        return MessageContainer(
-            TEXT_SEARCH_RESULT,
-            TEXT_SEARCH_RESULT_ERROR % query
-            )
-    else:
-        return oc
+    return oc
 
 #------------ SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle="", query=None):
@@ -637,7 +649,6 @@ def dataLength2millisec(dataLength):
                 sec = sec + int(durationList[i])
             i = i + 2
         return int(sec) * 1000
-
     elif durationList == []:
         return None
     else:
@@ -675,21 +686,69 @@ def GetOAShowEpisodes(prevTitle, showUrl, showName):
     suffix = "?sida=%d&sort=tid_fallande&embed=true"
     i = 1
     morePages = True
+    seasons = []
+    # index 0 contains Season number - the rest of the indices contains urls to episodes of that season.
+    seasons_episodes = []
     while morePages:
         pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
         epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
         for url in epUrls:
-            eo = GetOAEpisodeObject(url)
-            if eo != None:
-                episodes.add(eo)
+            if "-sasong-" in url:
+                index = re.sub(".*-sasong-([0-9]+).*", "\\1", url)
+                if not index in seasons:
+                    # New Season - add it
+                    seasons.append(index)
+                    seasons_episodes.append([index])
+                    ep_index = len(seasons_episodes)-1
+                else:
+                    # Find index handling current season
+                    ep_index = 0
+                    for ix in seasons_episodes:
+                        if ix[0] == index:
+                            break
+                        ep_index += 1
+                seasons_episodes[ep_index].append(url)
+                continue
+            else:
+                eo = GetOAEpisodeObject(url)
+                if eo != None:
+                    episodes.add(eo)
         nextPage = pageElement.xpath("//a[@data-target='.svtoa-js-searchlist']")
         i = i + 1
         if len(nextPage) == 0:
             morePages = False
     sortOnAirData(episodes)
+
+    if len(seasons) > 0:
+        newOc = ObjectContainer(title1=prevTitle, title2=showName)
+        seasons_len = len(seasons)
+        seasons.sort(key=lambda obj: int(obj))
+        seasons_episodes.sort(key=lambda obj: int(obj[0]))
+        while seasons_len > 0:
+            newOc.add(DirectoryObject(key=Callback(GetOASeasonEpisode, urlList=seasons_episodes[seasons_len-1], prevTitle=prevTitle, showName=showName), title = TEXT_SEASON % str(seasons[seasons_len-1]), thumb=R(ICON)))
+            seasons_len = seasons_len - 1
+        for ep in episodes.objects:
+            newOc.add(ep)
+        return newOc
+
     return episodes
 
-def GetOAEpisodeObject(url):
+# @route(PLUGIN_PREFIX + '/GetOASeasonEpisode', 'GET')
+def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
+    episodes = ObjectContainer(title1=prevTitle, title2=showName+" - "+TEXT_SEASON % urlList[0])
+    skip=True
+    for url in urlList:
+        if skip:
+            skip = False
+            # First index contains season number
+            continue
+        eo = GetOAEpisodeObject(url, stripTitlePrefix=True)
+        if eo != None:
+            episodes.add(eo)
+    # sortOnAirData(episodes) - seems "offical" plugin don't want this...
+    return episodes
+
+def GetOAEpisodeObject(url, stripTitlePrefix=False):
     try:
         page= HTML.ElementFromURL(url)
 
@@ -699,6 +758,19 @@ def GetOAEpisodeObject(url):
 
         if ' - ' in title:
             (show, title) = title.split(' - ', 1)
+
+        if "-sasong-" in url:
+            season = int(re.sub(".+-sasong-([0-9]+).+", "\\1", url))
+        else:
+            season = None
+
+        if "-avsnitt-" in url:
+            episode = int(re.sub(".+-avsnitt-([0-9]+).+", "\\1", url))
+        else:
+            episode = None
+
+        if stripTitlePrefix and "Avsnitt" in title:
+            title = re.sub(".*(Avsnitt.+)", "\\1", title)
 
         summary = page.xpath('//meta[@property="og:description"]/@content')[0].replace('&amp;', '&')
         summary = String.DecodeHTMLEntities(summary)
@@ -723,6 +795,8 @@ def GetOAEpisodeObject(url):
                 art = thumb,
                 thumb = thumb,
                 duration = duration,
+                season = season,
+                index = episode,
                 originally_available_at = air_date)
 
     except:
@@ -730,12 +804,10 @@ def GetOAEpisodeObject(url):
         Log("Exception occurred parsing url " + url)
 
 def airDate2date(dateString):
-    Log("JTDEBUG dateString %s" % dateString)
     year  = datetime.datetime.now().year
     month = datetime.datetime.now().month
     day   = datetime.datetime.now().day
     dateString = re.sub("[^0-9]*([0-9]+.+)", "\\1", dateString).split(' ')
-    Log("JTDEBUG dateString %s" % dateString)
     if len(dateString) == 3:
         (year, month, day) = convertFullAirDate(dateString)
     elif len(dateString) == 2:
