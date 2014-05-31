@@ -160,7 +160,6 @@ def GetAllIndex(prevTitle):
     return showsList
 
 #------------ SEARCH ---------------------
-@route(PLUGIN_PREFIX + '/Search', 'GET')
 def Search (query):
     if len(query) == 1:
         oc = SearchShowTitle(query)
