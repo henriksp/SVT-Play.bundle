@@ -63,14 +63,13 @@ cat2thumb = {u'Barn':'category_barn.png', \
              u'Samhälle & Fakta':'category_samhalle_och_fakta.png', \
              u'Sport':'category_sport.png'}
 
-cat2url= {u'Barn':'/ajax/program?category=kids', \
-             u'Dokumentär':'/ajax/program?category=documentary', \
-             u'Film & Drama':'/ajax/program?category=filmAndDrama', \
-             u'Kultur & Nöje':'/ajax/program?category=cultureAndEntertainment', \
-             u'Nyheter':'/ajax/program?category=news', \
-             u'Regionala':'/ajax/program?category=regionalNews', \
-             u'Samhälle & Fakta':'/ajax/program?category=societyAndFacts', \
-             u'Sport':'/ajax/program?category=sport'}
+cat2url= {u'Barn':'/barn', \
+             u'Dokumentär':'/dokumentar', \
+             u'Film & Drama':'/filmochdrama', \
+             u'Kultur & Nöje':'/kulturochnoje', \
+             u'Nyheter':'/nyheter', \
+             u'Samhälle & Fakta':'/samhalleochfakta', \
+             u'Sport':'/sport'}
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -136,13 +135,31 @@ def GetCategories(prevTitle):
     return catList
 
 def GetCategoryShows(prevTitle, key):
-    pageElement = HTML.ElementFromURL(URL_INDEX)
-    xpath = "//li[@data-category='%s']//a[@class='playAlphabeticLetterLink']" % categories[key]
-    programLinks = pageElement.xpath(xpath)
     showsList = ObjectContainer(title1=prevTitle, title2=key)
-    for s in CreateShowList(programLinks, key):
-        showsList.add(s)
 
+    pageElement = HTML.ElementFromURL(URL_SITE + cat2url[key])
+    xpath = "//div[@id='playJs-alphabetic-list']//article/a"
+    programLinks = pageElement.xpath(xpath)
+
+# For 'nyheter, there is no good common limiter of the articles.
+# try another xpath
+
+    if len(programLinks) == 0:
+        xpath = "//div[@id='playJs-title-pages']//article/a"
+        programLinks = pageElement.xpath(xpath)
+
+    Log(len(programLinks))
+    l = []
+
+    for programLink in programLinks:
+        name = programLink.xpath(".//span[@class='play-link-sub']/text()")[0].strip()
+        url = URL_SITE + programLink.xpath("./@href")[0]
+        showkey = Callback(GetShowEpisodes, prevTitle=key, showUrl=url, showName=name)
+        l.append(CreateShowDirObject(name, showkey))
+        Log(name)
+
+    for s in l:
+        showsList.add(s)
     return showsList
 
 #------------ SHOW FUNCTIONS ---------------------
@@ -284,7 +301,7 @@ def CreateShowList(programLinks, parentTitle=None):
             name = programLink.xpath("./text()")[0].strip()
             key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=url, showName=name)
             showsList.append(CreateShowDirObject(name, key))
-        except: 
+        except:
             Log("Error creating show: "+programLink.get("href"))
             pass
 
@@ -360,7 +377,7 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
 
     page = HTML.ElementFromURL(showUrl)
     articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
-        
+
     for epObj in GetEpisodeObjects(articles, title2, stripShow=sort):
         epList.add(epObj)
 
