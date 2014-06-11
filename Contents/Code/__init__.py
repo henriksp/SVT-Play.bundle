@@ -2,7 +2,7 @@
 import re, htmlentitydefs, datetime, time
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION = "7"
+VERSION = "8"
 PLUGIN_PREFIX = "/video/svt"
 
 # URLs
