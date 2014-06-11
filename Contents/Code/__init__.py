@@ -318,7 +318,7 @@ def GetShowImgUrl(showName):
 
 def HarvestShowData():
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='playAlphabeticLetterLink']")
+    programLinks = pageElement.xpath("//a[@class='play_alphabetic-link play_h4']")
     json_obj = JSON.ObjectFromURL(URL_PROGRAMS)
 
     for programLink in programLinks:
@@ -338,10 +338,10 @@ def HarvestShowData():
             pageElement = HTML.ElementFromURL(showURL)
 
             #Find the summary for the show
-            sum = pageElement.xpath("//div[@class='playBoxConnectedToVideoAside playJsShowMoreSubContainer']/p/text()")
+            sum = unescapeHTML(pageElement.xpath('//meta[@property="og:description"]/@content')[0])
             summary = ""
             if (len(sum) > 0):
-                summary = unicode(sum[0].strip())
+                summary = unicode(sum.strip())
 
             imgUrl = ""
             try:
