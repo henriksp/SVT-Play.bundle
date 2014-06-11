@@ -226,7 +226,7 @@ def ReturnSearchShows(url, xpath, result, showOc=[]):
 
     for article in showPage.xpath(xpath):
         name = article.get("data-title")
-        showUrl = URL_SITE + article.xpath("./div/a/@href")[0]
+        showUrl = URL_SITE + article.xpath("./a/@href")[0]
         key = Callback(GetShowEpisodes, prevTitle=TEXT_TITLE, showUrl=showUrl, showName=name)
         showOc.add(CreateShowDirObject(name, key))
 
