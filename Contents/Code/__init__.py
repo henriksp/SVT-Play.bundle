@@ -11,7 +11,6 @@ URL_INDEX = URL_SITE + "/program"
 URL_LIVE = URL_SITE + "/?tab=live&sida=1"
 URL_LATEST_SHOWS = URL_SITE + "/?tab=senasteprogram&sida=3"
 URL_LATEST_CLIPS = URL_SITE + "/?tab=senasteklipp&sida=4"
-URL_LATEST_NEWS = URL_SITE + "/?tab=senastenyhetsprogram&sida=3"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/sok/forslag.json"
 URL_RECOMMENDED = URL_SITE + "/?tab=rekommenderat&sida=3"
@@ -28,7 +27,6 @@ TEXT_INDEX_SHOWS = u'Program A-Ö'
 TEXT_PREFERENCES = u'Inställningar'
 TEXT_TITLE = u'SVT Play'
 TEXT_LATEST_SHOWS = u'Senaste program'
-TEXT_LATEST_NEWS = u'Senaste nyhetsprogram'
 TEXT_OA = u"Öppet arkiv"
 TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
@@ -112,7 +110,6 @@ def MainMenu():
     menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
     menu.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=TEXT_TITLE), title=TEXT_OA, thumb=R(OA_ICON)))
     menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL, thumb=R('icon-default.png')))
-    menu.add(DirectoryObject(key=Callback(GetLatestNews, prevTitle=TEXT_TITLE), title=TEXT_LATEST_NEWS, thumb=R('main_senaste_nyhetsprogram.png')))
     menu.add(DirectoryObject(key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
     menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title=TEXT_RECOMMENDED, thumb=R('main_rekommenderat.png')))
     menu.add(InputDirectoryObject(key=Callback(Search),title = TEXT_SEARCH, prompt=TEXT_SEARCH, thumb = R('search.png')))
@@ -143,7 +140,6 @@ def GetCategoryShows(prevTitle, key):
 
 # For 'nyheter, there is no good common limiter of the articles.
 # try another xpath
-
     if len(programLinks) == 0:
         xpath = "//div[@id='playJs-title-pages']//article/a"
         programLinks = pageElement.xpath(xpath)
@@ -472,9 +468,6 @@ def GetRecommendedEpisodes(prevTitle=None):
 @route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
-
-def GetLatestNews(prevTitle):
-    return MakeShowContainer(URL_LATEST_NEWS, prevTitle, TEXT_LATEST_NEWS, addClips=False, maxEps=15)
 
 def GetLatestShows(prevTitle):
     return MakeShowContainer(URL_LATEST_SHOWS, prevTitle, TEXT_LATEST_SHOWS, addClips=False, maxEps=15)
