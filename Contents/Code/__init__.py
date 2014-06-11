@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*
-import re, htmlentitydefs, datetime
+import re, htmlentitydefs, datetime, time
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 VERSION = "7"
@@ -474,7 +474,7 @@ def GetLatestShows(prevTitle):
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
-    shows = page.xpath("//div[contains(concat(' ',@class,' '),' playJsSchedule-SelectedEntry ')]")
+    shows = page.xpath("//div[contains(concat(' ',@class,' '),' play_zapper')]//a")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
     channelsList = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
 
@@ -483,13 +483,27 @@ def GetChannels(prevTitle):
         if channel == None:
             continue
         url = URL_CHANNELS + '/' + channel
-        desc = show.get("data-description")
-        thumb = show.get("data-titlepage-poster")
+        desc = None
+        thumb = None
+
         if thumb == None:
             thumb = URL_SITE + thumbBase % channel
 
-        title = show.get("data-title")
-        airing = show.xpath(".//time/text()")[0]
+        title = show.xpath(".//span[@class='play_zapper__menu__item-title']/text()")[0]
+
+        timestring = ""
+# Try to convert the time values to something readable
+        try:
+            timeDiv = show.xpath(".//div[@class='play_progressbar__value playJsSchedule-Progress']")[0]
+            starttime = timeDiv.get("data-starttime")
+            endtime = timeDiv.get("data-endtime")
+            s = int(starttime)/1000
+            e = int(endtime)/1000
+            ss = time.strftime('%H:%M', time.localtime(s))
+            es = time.strftime('%H:%M', time.localtime(e))
+            timestring = " - (%s - %s)" % (ss, es)
+        except:
+            pass
 
         if 'svt' in channel:
             channel = channel.upper()
@@ -498,7 +512,7 @@ def GetChannels(prevTitle):
 
         show = EpisodeObject(
                 url = url,
-                title = channel + " - " + title + ' (' + airing + ')',
+                title = channel + " - " + title + timestring,
                 summary = desc,
                 thumb = thumb)
         channelsList.add(show)
