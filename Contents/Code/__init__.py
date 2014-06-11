@@ -9,7 +9,6 @@ PLUGIN_PREFIX = "/video/svt"
 URL_SITE = "http://www.svtplay.se"
 URL_INDEX = URL_SITE + "/program"
 URL_LIVE = URL_SITE
-URL_LATEST_SHOWS = URL_SITE + "/?tab=senasteprogram&sida=3"
 URL_LATEST_CLIPS = URL_SITE + "/?tab=senasteklipp&sida=4"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/sok/forslag.json"
@@ -434,43 +433,37 @@ def GetShowUrls(showUrl=None, maxEp=100):
 
     return (epAjaxUrl, clipAjaxUrl, epUrls, clipUrls)
 
-def GetRecommendedEpisodes(prevTitle=None):
-    oc = ObjectContainer(title1=prevTitle, title2=TEXT_RECOMMENDED)
-
-    page = HTML.ElementFromURL(URL_SITE)
-    articles = page.xpath("//section[@id='recommended-videos']/div/div/div/article")
-    for article in articles:
-        url = article.xpath("./a/@href")[0]
-        if "http" in url:
-            continue
-        url = URL_SITE + url
-        show = None
-        title = article.xpath("./a/span/span[1]/text()")[0].strip()
-        summary = unescapeHTML(article.xpath("./a/span/span[2]/text()")[0].strip())
-        # duration = dataLength2millisec(article.get("data-length"))
-        thumb = article.xpath("./a/figure/img/@data-imagename")[0]
-        art = thumb
-
-        tmp = title.split(" - ", 1)
-        if len(tmp) > 1:
-            show = tmp[0]
-
-        oc.add(EpisodeObject(
-                url = url,
-                show = show,
-                title = title,
-                summary = summary,
-                # duration = duration,
-                thumb = thumb,
-                art = art))
-    return oc
-
 @route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
 
+def MakeGroupContainer(articleList, prevTitle, title):
+    channelsList = ObjectContainer(title1=prevTitle, title2=title)
+    for article in articleList:
+        url = URL_SITE + article.xpath("./a/@href")[0]
+        title = article.get("data-title")
+        desc = article.get("data-description")
+        thumb = article.xpath(".//img/@src")[0]
+        Log(thumb)
+
+        show = EpisodeObject(
+                url = url,
+                title = title,
+                summary = desc,
+                thumb = thumb)
+        channelsList.add(show)
+
+    return channelsList
+
 def GetLatestShows(prevTitle):
-    return MakeShowContainer(URL_LATEST_SHOWS, prevTitle, TEXT_LATEST_SHOWS, addClips=False, maxEps=15)
+    page = HTML.ElementFromURL(URL_SITE, cacheTime = 0)
+    articles = page.xpath("//div[@id='playJs-latest-videos']//article")
+    return MakeGroupContainer(articles, prevTitle, TEXT_LATEST_SHOWS)
+
+def GetRecommendedEpisodes(prevTitle=None):
+    page = HTML.ElementFromURL(URL_SITE, cacheTime = 0)
+    articles = page.xpath("//div[@id='playJs-popular-videos']//article")
+    return MakeGroupContainer(articles, prevTitle, TEXT_RECOMMENDED)
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
@@ -533,10 +526,8 @@ def GetLiveShows(prevTitle):
 def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()")
     timeText = " - ".join(times)
-    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0].strip().split()
-    for i in showName:
-        i.strip()
-    showName = " ".join(showName)
+    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0]
+    showName = trimShowName(showName)
     return timeText + " " + showName
 
 def GetLiveEpisodeObject(url, title):
@@ -894,3 +885,10 @@ def sortOnAirData(Objects):
         if obj.originally_available_at == None:
             return Objects.objects.reverse()
     return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title))
+
+def trimShowName(showName):
+    showName = showName.strip().split()
+    for i in showName:
+        i.strip()
+    showName = " ".join(showName)
+    return showName
