@@ -8,7 +8,7 @@ PLUGIN_PREFIX = "/video/svt"
 # URLs
 URL_SITE = "http://www.svtplay.se"
 URL_INDEX = URL_SITE + "/program"
-URL_LIVE = URL_SITE + "/?tab=live&sida=1"
+URL_LIVE = URL_SITE
 URL_LATEST_SHOWS = URL_SITE + "/?tab=senasteprogram&sida=3"
 URL_LATEST_CLIPS = URL_SITE + "/?tab=senasteklipp&sida=4"
 URL_CHANNELS = URL_SITE + "/kanaler"
@@ -521,9 +521,9 @@ def GetChannels(prevTitle):
 def GetLiveShows(prevTitle):
     page = HTML.ElementFromURL(URL_LIVE, cacheTime=0)
     showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
-    liveshows = page.xpath("//a[contains(concat(' ', @class, ' '), 'playBroadcastBoxItem') and not(contains(concat(' ', @class, ' '), 'playBroadcastEnded'))]")
+    liveshows = page.xpath("//div[@id='playJs-live-channels']//a")
 
-    for a in liveshows[0:2]:
+    for a in liveshows[0:3]:
         url = a.get("href")
         url = URL_SITE + url
         showsList.add(GetLiveEpisodeObject(url, GetLiveShowTitle(a)))
@@ -533,14 +533,15 @@ def GetLiveShows(prevTitle):
 def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()")
     timeText = " - ".join(times)
-    showName = a.xpath(".//div[@class='playBroadcastTitle']/text()")
-    if not showName:
-        showName = a.xpath(".//h1[@class='playH5']/text()")
-    return timeText + " " + showName[0]
+    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0].strip().split()
+    for i in showName:
+        i.strip()
+    showName = " ".join(showName)
+    return timeText + " " + showName
 
 def GetLiveEpisodeObject(url, title):
     page = HTML.ElementFromURL(url, cacheTime=0)
-    show = page.xpath("//h1[@class='playVideoBoxHeadline-Inner']/text()")[0]
+    show = page.xpath("//h1[@class='play_h2 playx_color-white']/text()")[0]
     description = unescapeHTML(page.xpath('//meta[@property="og:description"]/@content')[0])
     duration = 0
     thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
