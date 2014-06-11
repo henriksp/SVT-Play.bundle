@@ -596,11 +596,12 @@ def GetEpisodeObject(url):
         Log.Exception("An error occurred while attempting to retrieve the required meta data.")
 
 #------------ EPISODE FUNCTIONS ---------------------
+# Excpects a list of arcticle tags
 def GetEpisodeObjects(articles, showName, stripShow=False, addUrlPrefix=True):
     resultList = []
 
     for article in articles:
-        url = article.xpath("./div/a/@href")[0]
+        url = article.xpath("./a/@href")[0]
         if addUrlPrefix:
             url = URL_SITE + url
         show = showName
