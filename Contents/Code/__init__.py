@@ -390,8 +390,7 @@ def GetRecommendedEpisodes(prevTitle=None):
             continue
         url = URL_SITE + url
         show = None
-        # Lets see if this also works for live events...
-        title = article.xpath(".//span[@class='playx_vertical-center-inner-container']/text()")[0].strip()
+        title = GetFirstNonEmptyString(article.xpath(".//span[@class='playx_vertical-center-inner-container']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
         if summary: summary = unescapeHTML(summary)
         thumb = article.xpath(".//img/@data-imagename")[0]
