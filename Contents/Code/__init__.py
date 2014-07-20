@@ -96,8 +96,7 @@ def AddSections(menu):
     index = 0
     for section in pageElement.xpath(xpath):
         title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/text()")[0]
-        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title), \
-                                     title=title, thumb=R(ICON)))
+        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title), title=title, thumb=R(ICON)))
         index = index + 1
     return menu
 
@@ -117,8 +116,7 @@ def GetSectionEpisodes(index, prevTitle, title):
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
                 oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
             else:
-                oc.add(DirectoryObject(key=Callback(GetSectionShows, url=url, prevTitle=prevTitle, title=title), \
-                                       title=title, thumb=thumb))
+                oc.add(DirectoryObject(key=Callback(GetSectionShows, url=url, prevTitle=prevTitle, title=title), title=title, thumb=thumb))
     else: 
         oc = GetEpisodeObjects(oc, articles, showName=None)
     return oc
@@ -316,11 +314,10 @@ def HarvestShowData():
             pageElement = HTML.ElementFromURL(showURL)
 
             #Find the summary for the show
-            sum = unescapeHTML(pageElement.xpath("//div[@id='video-info-panel-1']/p/text()")[0])
+            sum = pageElement.xpath("//div[@id='video-info-panel-1']/p/text()")
             summary = ""
-            if (len(sum) > 0):
-                summary = unicode(sum.strip())
-
+            if (len(sum) > 0 and len(sum[0]) > 0):
+                summary = unicode(unescapeHTML(sum[0].strip()))
             imgUrl = ""
             try:
                 print json_obj
@@ -332,7 +329,6 @@ def HarvestShowData():
                 Log("Error looking for image for show %s %s" % (showName, e))
                 pass
 
-            t = Datetime.TimestampFromDatetime(Datetime.Now())
             d[showName] = (showName, summary, Datetime.Now(), imgUrl)
 
             #To prevent this thread from stealing too much network time
@@ -495,6 +491,16 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@data-imagename")[0]
         art = thumb
+
+        if showName and stripShow and showName in title:
+            title = re.sub(showName+"[ 	-:]*(.+)", "\\1", title)
+        elif not showName:
+            tmp = title.split(" - ", 1)
+            if len(tmp) > 1:
+                if stripShow:
+                    title = tmp[1]
+                if not showName:
+                    show = tmp[0]
 
         try:
            air_date = article.get("data-broadcasted")
