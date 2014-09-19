@@ -397,7 +397,7 @@ def GetRecommendedEpisodes(prevTitle=None):
             show = tmp[0]
 
         oc.add(EpisodeObject(
-                url =url,
+                url = url,
                 show = show,
                 title = title,
                 summary = summary,
@@ -488,6 +488,9 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         else:
             title = article.get("data-title")
         summary = unescapeHTML(article.get("data-description"))
+        availability = unescapeHTML(article.get("data-available"))
+        if len(availability) > 0:
+            summary = u'Tillgänglig: ' + availability + ". \n" + summary
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@data-imagename")[0]
         art = thumb
