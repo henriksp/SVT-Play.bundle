@@ -95,7 +95,7 @@ def AddSections(menu):
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
     index = 0
     for section in pageElement.xpath(xpath):
-        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/text()")[0]
+        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/a/text()")[0]
         menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title), title=title, thumb=R(ICON)))
         index = index + 1
     return menu
@@ -254,7 +254,7 @@ def GetIndexShows(prevTitle="", title2=TEXT_INDEX_SHOWS, titleFilter=None):
 
     showsList = ObjectContainer(title1=prevTitle, title2=title2)
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='play_alphabetic-link play_h4']")
+    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
     for s in CreateShowList(programLinks, title2):
         if FilterTitle(s.title, titleFilter):
             showsList.add(s)
@@ -268,12 +268,12 @@ def CreateShowList(programLinks, parentTitle=None):
 
     for programLink in programLinks:
         try:
-            url = URL_SITE + programLink.get("href")
-            name = programLink.xpath("./text()")[0].strip()
+            url = URL_SITE + programLink.xpath("./a/@href")[0]
+            name = programLink.xpath("./a/text()")[0].strip()
             key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=url, showName=name)
             showsList.append(CreateShowDirObject(name, key))
         except Exception as e:
-            Log("Error creating show: %s %s" % (programLink.get("href"),e))
+            Log("Error creating show: %s %s" % (programLink.xpath("./a/@href")[0],e))
             pass
 
     return showsList
@@ -294,13 +294,13 @@ def GetShowImgUrl(showName):
 
 def HarvestShowData():
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='play_alphabetic-link play_h4']")
+    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
     json_obj = JSON.ObjectFromURL(URL_PROGRAMS)
 
     for programLink in programLinks:
         try:
-            showURL = URL_SITE + programLink.get("href")
-            showName = unicode(programLink.xpath("./text()")[0].strip())
+            showURL = URL_SITE + programLink.xpath("./a/@href")[0]
+            showName = unicode(programLink.xpath("./a/text()")[0].strip())
 
             d = Dict[SHOW_SUM]
             if showName in d:
@@ -397,7 +397,7 @@ def GetRecommendedEpisodes(prevTitle=None):
             show = tmp[0]
 
         oc.add(EpisodeObject(
-                url = addSamsung(url, title),
+                url =url,
                 show = show,
                 title = title,
                 summary = summary,
@@ -497,10 +497,9 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         elif not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
+                show = tmp[0]
                 if stripShow:
                     title = tmp[1]
-                if not showName:
-                    show = tmp[0]
 
         try:
            air_date = article.get("data-broadcasted")
