@@ -190,11 +190,11 @@ def Search (query):
     else:
         result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
         if episodeHits > 0:
-            result = ReturnSearchHits(searchUrl, episodeXpath, result, TEXT_EPISODES, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, episodeXpath, result, "%s(%i)" % (TEXT_EPISODES,episodeHits), typeHits > 1)
         if clipHits > 0:
-            result = ReturnSearchHits(searchUrl, clipXpath, result, TEXT_CLIPS, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, clipXpath, result, "%s(%i)" % (TEXT_CLIPS,clipHits), typeHits > 1)
         if oaHits > 0:
-            result = ReturnSearchHits(searchUrl, oaXpath, result, TEXT_OA, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, oaXpath, result, "%s(%i)" % (TEXT_OA,oaHits), typeHits > 1)
         if showHits > 0:
             result = ReturnSearchShows(searchUrl, showXpath, result, showOc)
         return result
@@ -232,7 +232,7 @@ def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
     else:
         page = HTML.ElementFromURL(url)
         epList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " - " + directoryTitle)
-        return GetEpisodeObjects(epList, page.xpath(xpath), None, stripShow=False, addUrlPrefix=(directoryTitle!=TEXT_OA))
+        return GetEpisodeObjects(epList, page.xpath(xpath), None, stripShow=False, addUrlPrefix=(not TEXT_OA in directoryTitle))
 
 def CreateDirObject(name, key, thumb=R(ICON), summary=None):
     myDir         = DirectoryObject()
