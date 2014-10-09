@@ -147,11 +147,10 @@ def GetCategoryShows(prevTitle, key):
     l = []
 
     for programLink in programLinks:
-        name = programLink.xpath(".//span[@class='play-link-sub']/text()")[0].strip()
+        name = programLink.xpath(".//span[@class='play_link__sub']/text()")[0].strip()
         url = URL_SITE + programLink.xpath("./@href")[0]
         showkey = Callback(GetShowEpisodes, prevTitle=key, showUrl=url, showName=name)
         l.append(CreateShowDirObject(name, showkey))
-        Log(name)
 
     for s in l:
         showsList.add(s)
