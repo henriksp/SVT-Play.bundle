@@ -43,6 +43,13 @@ CACHE_30DAYS = CACHE_1DAY * 30
 SHOW_SUM = "showsum"
 DICT_V = 1
 
+sec2thumb = {u"Kategorier": "main_kategori.png", \
+             u"Kanaler" : "main_kanaler.png", \
+             u"Live" : "main_live.png", \
+             u"Senaste program" : "main_senaste_program.png", \
+             u"Rekommenderat" : "main_rekommenderat.png"
+            }
+
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def Start():
@@ -78,7 +85,7 @@ def Start():
 def MainMenu():
 
     menu = ObjectContainer(title1=TEXT_TITLE)
-    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS,thumb=R('icon-default.png')))
+    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS,thumb=R('main_index.png')))
     menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS,thumb=R('main_kanaler.png')))
     menu = AddSections(menu)
     menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title="Rekommenderat", thumb=R('main_rekommenderat.png')))
@@ -97,7 +104,15 @@ def AddSections(menu):
     index = 0
     for section in pageElement.xpath(xpath):
         title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/a/text()")[0]
-        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title), title=title, thumb=R(ICON)))
+
+        img = ICON
+        try:
+            img = sec2thumb[title]
+        except:
+            pass
+
+        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title),
+            title=title, thumb=R(img)))
         index = index + 1
     return menu
 
