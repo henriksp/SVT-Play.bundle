@@ -107,11 +107,11 @@ def GetSectionEpisodes(index, prevTitle, title):
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
     section = pageElement.xpath(xpath)[index]
     articles = section.xpath(".//article")
-    if len(articles[0].xpath(".//h2/text()")) > 0:
+    if len(articles[0].xpath(".//span[@class='play_h4']/text()")) > 0:
         for article in articles:
             url = URL_SITE + article.xpath("./a/@href")[0]
             thumb = URL_SITE + article.xpath(".//img/@src")[0]
-            title = article.xpath(".//h2/text()")[0].strip()
+            title = article.xpath(".//span[@class='play_h4']/text()")[0].strip()
             # Nasty hack for OA in categories...
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
                 oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
@@ -470,7 +470,7 @@ def GetChannels(prevTitle):
 def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()") # obsolete xpath?
     timeText = " - ".join(times)
-    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0]
+    showName = a.xpath(".//span[@class='play_link__sub']/text()")[0]
     showName = trimShowName(showName)
     return (timeText + " " + showName).strip()
 
