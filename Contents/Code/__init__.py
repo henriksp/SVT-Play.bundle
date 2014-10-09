@@ -78,9 +78,10 @@ def Start():
 def MainMenu():
 
     menu = ObjectContainer(title1=TEXT_TITLE)
-    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title="Rekommenderat", thumb=R('main_rekommenderat.png')))
-    menu = AddSections(menu)
+    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS,thumb=R('icon-default.png')))
     menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS,thumb=R('main_kanaler.png')))
+    menu = AddSections(menu)
+    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title="Rekommenderat", thumb=R('main_rekommenderat.png')))
     menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL,thumb=R('icon-default.png')))
     menu.add(InputDirectoryObject(key=Callback(Search),title = TEXT_SEARCH, prompt=TEXT_SEARCH, thumb = R('search.png')))
     Log(VERSION)
@@ -379,7 +380,7 @@ def GetRecommendedEpisodes(prevTitle=None):
     oc = ObjectContainer(title1=prevTitle, title2=TEXT_RECOMMENDED)
 
     page = HTML.ElementFromURL(URL_SITE)
-    articles = page.xpath("//section[@id='recommended-videos']/div/div/article")
+    articles = page.xpath("//section[@id='recommended-videos']//article")
     for article in articles:
         url = article.xpath("./a/@href")[0]
         if "http" in url:
