@@ -118,7 +118,7 @@ def GetSectionEpisodes(index, prevTitle, title):
                 oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
             else:
                 oc.add(DirectoryObject(key=Callback(GetSectionShows, url=url, prevTitle=prevTitle, title=title), title=title, thumb=thumb))
-    else: 
+    else:
         oc = GetEpisodeObjects(oc, articles, showName=None)
     return oc
 
