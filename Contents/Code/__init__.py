@@ -525,7 +525,7 @@ def GetLiveShows(prevTitle):
 def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()")
     timeText = " - ".join(times)
-    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0]
+    showName = a.xpath(".//span[@class='play_link__sub']/text()")[0]
     showName = trimShowName(showName)
     return timeText + " " + showName
 
