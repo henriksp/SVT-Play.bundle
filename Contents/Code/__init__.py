@@ -2,32 +2,27 @@
 import re, htmlentitydefs, datetime, time
 # Global constants
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-VERSION = "8"
+VERSION = "9"
 PLUGIN_PREFIX = "/video/svt"
 
 # URLs
 URL_SITE = "http://www.svtplay.se"
 URL_INDEX = URL_SITE + "/program"
-URL_LIVE = URL_SITE
-URL_LATEST_CLIPS = URL_SITE + "/?tab=senasteklipp&sida=4"
 URL_CHANNELS = URL_SITE + "/kanaler"
 URL_PROGRAMS = URL_SITE + "/ajax/sok/forslag.json"
-URL_RECOMMENDED = URL_SITE + "/?tab=rekommenderat&sida=3"
 URL_SEARCH      = URL_SITE + "/sok?q=%s"
 
 #Öppet arkiv
-URL_OA_SITE = "http://www.oppetarkiv.se"
+URL_OA_LABEL = "oppetarkiv"
+URL_OA_SITE = "http://www.%s.se" % URL_OA_LABEL
 URL_OA_INDEX = "http://www.oppetarkiv.se/kategori/titel"
 
 #Texts
 TEXT_CHANNELS = u'Kanaler'
-TEXT_LIVE_SHOWS = u'Livesändningar'
 TEXT_INDEX_SHOWS = u'Program A-Ö'
 TEXT_PREFERENCES = u'Inställningar'
 TEXT_TITLE = u'SVT Play'
-TEXT_LATEST_SHOWS = u'Senaste program'
 TEXT_OA = u"Öppet arkiv"
-TEXT_CATEGORIES = u"Kategorier"
 TEXT_INDEX_ALL = u'Alla Program'
 TEXT_SEARCH = u"Sök"
 TEXT_RECOMMENDED = u"Rekommenderat"
@@ -48,25 +43,12 @@ CACHE_30DAYS = CACHE_1DAY * 30
 SHOW_SUM = "showsum"
 DICT_V = 1
 
-categories = {u'Barn':'barn', u'Dokumentär':'dokumentar', u'Film & Drama':'filmochdrama', \
-              u'Kultur & Nöje':'kulturochnoje', u'Nyheter':'nyheter', \
-              u'Samhälle & Fakta':'samhalleochfakta', u'Sport':'sport'}
-
-cat2thumb = {u'Barn':'category_barn.png', \
-             u'Dokumentär':'icon-default.png', \
-             u'Film & Drama':'category_film_och_drama.png', \
-             u'Kultur & Nöje':'category_kultur_och_noje.png', \
-             u'Nyheter':'category_nyheter.png', \
-             u'Samhälle & Fakta':'category_samhalle_och_fakta.png', \
-             u'Sport':'category_sport.png'}
-
-cat2url= {u'Barn':'/barn', \
-             u'Dokumentär':'/dokumentar', \
-             u'Film & Drama':'/filmochdrama', \
-             u'Kultur & Nöje':'/kulturochnoje', \
-             u'Nyheter':'/nyheter', \
-             u'Samhälle & Fakta':'/samhalleochfakta', \
-             u'Sport':'/sport'}
+sec2thumb = {u"Kategorier": "main_kategori.png", \
+             u"Kanaler" : "main_kanaler.png", \
+             u"Live" : "main_live.png", \
+             u"Senaste program" : "main_senaste_program.png", \
+             u"Rekommenderat" : "main_rekommenderat.png"
+            }
 
 # Initializer called by the framework
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -103,59 +85,72 @@ def Start():
 def MainMenu():
 
     menu = ObjectContainer(title1=TEXT_TITLE)
-    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS, thumb=R('main_index.png')))
-    menu.add(DirectoryObject(key=Callback(GetCategories, prevTitle=TEXT_TITLE), title=TEXT_CATEGORIES, thumb=R('main_kategori.png')))
-    menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS, thumb=R('main_kanaler.png')))
-    menu.add(DirectoryObject(key=Callback(GetLiveShows, prevTitle=TEXT_TITLE), title=TEXT_LIVE_SHOWS, thumb=R('main_live.png')))
-    menu.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=TEXT_TITLE), title=TEXT_OA, thumb=R(OA_ICON)))
-    menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL, thumb=R('icon-default.png')))
-    menu.add(DirectoryObject(key=Callback(GetLatestShows, prevTitle=TEXT_TITLE), title=TEXT_LATEST_SHOWS, thumb=R('main_senaste_program.png')))
-    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title=TEXT_RECOMMENDED, thumb=R('main_rekommenderat.png')))
+    menu.add(DirectoryObject(key=Callback(GetIndexShows, prevTitle=TEXT_TITLE), title=TEXT_INDEX_SHOWS,thumb=R('main_index.png')))
+    menu.add(DirectoryObject(key=Callback(GetChannels, prevTitle=TEXT_TITLE), title=TEXT_CHANNELS,thumb=R('main_kanaler.png')))
+    menu = AddSections(menu)
+    menu.add(DirectoryObject(key=Callback(GetRecommendedEpisodes, prevTitle=TEXT_TITLE), title="Rekommenderat", thumb=R('main_rekommenderat.png')))
+    menu.add(DirectoryObject(key=Callback(GetAllIndex, prevTitle=TEXT_TITLE), title=TEXT_INDEX_ALL,thumb=R('icon-default.png')))
     menu.add(InputDirectoryObject(key=Callback(Search),title = TEXT_SEARCH, prompt=TEXT_SEARCH, thumb = R('search.png')))
     Log(VERSION)
 
     return menu
 
+#------------ SECTIONS FUNCTIONS ---------------------
 
-#------------ CATEGORY FUNCTIONS ---------------------
+def AddSections(menu):
 
-def GetCategories(prevTitle):
-    catList = ObjectContainer(title1=prevTitle, title2=TEXT_CATEGORIES)
-    keys = categories.keys()
-    keys.sort()
-    for key in keys:
-        d = DirectoryObject(key=Callback(GetCategoryShows, key=key, prevTitle=TEXT_CATEGORIES), \
-                title=key, thumb=R(cat2thumb[key]))
-        catList.add(d)
+    pageElement = HTML.ElementFromURL(URL_SITE)
+    xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
+    index = 0
+    for section in pageElement.xpath(xpath):
+        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/a/text()")[0]
 
-    return catList
+        img = ICON
+        try:
+            img = sec2thumb[title]
+        except:
+            pass
 
-def GetCategoryShows(prevTitle, key):
-    showsList = ObjectContainer(title1=prevTitle, title2=key)
+        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title),
+            title=title, thumb=R(img)))
+        index = index + 1
+    return menu
 
-    pageElement = HTML.ElementFromURL(URL_SITE + cat2url[key])
-    xpath = "//div[@id='playJs-alphabetic-list']//article/a"
-    programLinks = pageElement.xpath(xpath)
+def GetSectionEpisodes(index, prevTitle, title):
+    oc = ObjectContainer(title1=prevTitle, title2=title)
 
-# For 'nyheter, there is no good common limiter of the articles.
-# try another xpath
-    if len(programLinks) == 0:
-        xpath = "//div[@id='playJs-title-pages']//article/a"
-        programLinks = pageElement.xpath(xpath)
+    pageElement = HTML.ElementFromURL(URL_SITE, cacheTime=0)
+    xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
+    section = pageElement.xpath(xpath)[index]
+    articles = section.xpath(".//article")
+    if len(articles[0].xpath(".//span[@class='play_h4']/text()")) > 0:
+        for article in articles:
+            url = URL_SITE + article.xpath("./a/@href")[0]
+            thumb = URL_SITE + article.xpath(".//img/@src")[0]
+            title = article.xpath(".//span[@class='play_h4']/text()")[0].strip()
+            # Nasty hack for OA in categories...
+            if url == URL_SITE + "/%s" % URL_OA_LABEL:
+                oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
+            else:
+                oc.add(DirectoryObject(key=Callback(GetSectionShows, url=url, prevTitle=prevTitle, title=title), title=title, thumb=thumb))
+    else:
+        oc = GetEpisodeObjects(oc, articles, showName=None)
+    return oc
 
-    Log(len(programLinks))
-    l = []
+def GetSectionShows(url, prevTitle, title):
+    oc = ObjectContainer(title1=prevTitle, title2=title)
+    page = HTML.ElementFromURL(url)
+    articles = page.xpath("//div[@id='playJs-alphabetic-list']//article")
+    # For 'nyheter, there is no good common limiter of the articles.
+    # try another xpath
+    if len(articles) == 0:
+        articles = page.xpath("//div[@id='playJs-title-pages']//article")
+    for article in articles:
+        showUrl = URL_SITE + article.xpath("./a/@href")[0]
+        name = article.get("data-title")
+        oc.add(CreateShowDirObject(name, key=Callback(GetShowEpisodes, prevTitle=prevTitle, showUrl=showUrl, showName=name)))
 
-    for programLink in programLinks:
-        name = programLink.xpath(".//span[@class='play-link-sub']/text()")[0].strip()
-        url = URL_SITE + programLink.xpath("./@href")[0]
-        showkey = Callback(GetShowEpisodes, prevTitle=key, showUrl=url, showName=name)
-        l.append(CreateShowDirObject(name, showkey))
-        Log(name)
-
-    for s in l:
-        showsList.add(s)
-    return showsList
+    return oc
 
 #------------ SHOW FUNCTIONS ---------------------
 def GetAllIndex(prevTitle, title2=TEXT_INDEX_ALL, titleFilter=None):
@@ -211,11 +206,11 @@ def Search (query):
     else:
         result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
         if episodeHits > 0:
-            result = ReturnSearchHits(searchUrl, episodeXpath, result, TEXT_EPISODES, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, episodeXpath, result, "%s(%i)" % (TEXT_EPISODES,episodeHits), typeHits > 1)
         if clipHits > 0:
-            result = ReturnSearchHits(searchUrl, clipXpath, result, TEXT_CLIPS, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, clipXpath, result, "%s(%i)" % (TEXT_CLIPS,clipHits), typeHits > 1)
         if oaHits > 0:
-            result = ReturnSearchHits(searchUrl, oaXpath, result, TEXT_OA, typeHits > 1)
+            result = ReturnSearchHits(searchUrl, oaXpath, result, "%s(%i)" % (TEXT_OA,oaHits), typeHits > 1)
         if showHits > 0:
             result = ReturnSearchShows(searchUrl, showXpath, result, showOc)
         return result
@@ -253,10 +248,7 @@ def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
     else:
         page = HTML.ElementFromURL(url)
         epList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " - " + directoryTitle)
-        for clipObj in GetEpisodeObjects(page.xpath(xpath), None, stripShow=False, addUrlPrefix=(directoryTitle!=TEXT_OA)):
-            epList.add(clipObj)
-
-        return epList
+        return GetEpisodeObjects(epList, page.xpath(xpath), None, stripShow=False, addUrlPrefix=(not TEXT_OA in directoryTitle))
 
 def CreateDirObject(name, key, thumb=R(ICON), summary=None):
     myDir         = DirectoryObject()
@@ -278,7 +270,7 @@ def GetIndexShows(prevTitle="", title2=TEXT_INDEX_SHOWS, titleFilter=None):
 
     showsList = ObjectContainer(title1=prevTitle, title2=title2)
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='play_alphabetic-link']")
+    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
     for s in CreateShowList(programLinks, title2):
         if FilterTitle(s.title, titleFilter):
             showsList.add(s)
@@ -292,12 +284,12 @@ def CreateShowList(programLinks, parentTitle=None):
 
     for programLink in programLinks:
         try:
-            url = URL_SITE + programLink.get("href")
-            name = programLink.xpath("./text()")[0].strip()
+            url = URL_SITE + programLink.xpath("./a/@href")[0]
+            name = programLink.xpath("./a/text()")[0].strip()
             key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=url, showName=name)
             showsList.append(CreateShowDirObject(name, key))
-        except:
-            Log("Error creating show: "+programLink.get("href"))
+        except Exception as e:
+            Log("Error creating show: %s %s" % (programLink.xpath("./a/@href")[0],e))
             pass
 
     return showsList
@@ -318,13 +310,13 @@ def GetShowImgUrl(showName):
 
 def HarvestShowData():
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//a[@class='play_alphabetic-link play_h4']")
+    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
     json_obj = JSON.ObjectFromURL(URL_PROGRAMS)
 
     for programLink in programLinks:
         try:
-            showURL = URL_SITE + programLink.get("href")
-            showName = unicode(programLink.xpath("./text()")[0].strip())
+            showURL = URL_SITE + programLink.xpath("./a/@href")[0]
+            showName = unicode(programLink.xpath("./a/text()")[0].strip())
 
             d = Dict[SHOW_SUM]
             if showName in d:
@@ -338,11 +330,10 @@ def HarvestShowData():
             pageElement = HTML.ElementFromURL(showURL)
 
             #Find the summary for the show
-            sum = unescapeHTML(pageElement.xpath('//meta[@property="og:description"]/@content')[0])
+            sum = pageElement.xpath("//div[@id='video-info-panel-1']/p/text()")
             summary = ""
-            if (len(sum) > 0):
-                summary = unicode(sum.strip())
-
+            if (len(sum) > 0 and len(sum[0]) > 0):
+                summary = unicode(unescapeHTML(sum[0].strip()))
             imgUrl = ""
             try:
                 print json_obj
@@ -350,11 +341,10 @@ def HarvestShowData():
                     if showName == show['title']:
                         # I need to unicode it to save it in the Dict
                         imgUrl = unicode(show['thumbnail'])
-            except:
-                Log("Error looking for image for show %s" % showName)
+            except Exception as e:
+                Log("Error looking for image for show %s %s" % (showName, e))
                 pass
 
-            t = Datetime.TimestampFromDatetime(Datetime.Now())
             d[showName] = (showName, summary, Datetime.Now(), imgUrl)
 
             #To prevent this thread from stealing too much network time
@@ -362,24 +352,24 @@ def HarvestShowData():
             Dict[SHOW_SUM] = d
             Dict.Save()
             Thread.Sleep(1)
-        except:
-            Log("Error harvesting show data: " + programLink.get('href'))
+        except Exception as e:
+            Log("Error harvesting show data: %s %s" % (programLink.get('href'), e))
             pass
 
 def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, maxEps=500):
+    title2 = unicode(title2)
     epList = ObjectContainer(title1=title1, title2=title2)
     resultList = ObjectContainer(title1=title1, title2=title2)
 
     page = HTML.ElementFromURL(showUrl)
     articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
 
-    for epObj in GetEpisodeObjects(articles, title2, stripShow=sort):
-        epList.add(epObj)
+    epList = GetEpisodeObjects(epList, articles, title2, stripShow=sort)
 
     if addClips:
         page = HTML.ElementFromURL(showUrl)
         if len(page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")) > 0:
-            clips = DirectoryObject(key=Callback(GetAjaxClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
+            clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
             resultList.add(clips)
         for ep in epList.objects:
             resultList.add(ep)
@@ -387,83 +377,65 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     else:
         return epList
 
-def GetAjaxClipsContainer(clipUrl, title1, title2, sort=False):
-    clipList = ObjectContainer(title1=title1, title2=title2)
+def GetClipsContainer(clipUrl, title1, title2, sort=False):
+    clipList = ObjectContainer(title1=title1, title2=unicode(title2))
 
     page = HTML.ElementFromURL(clipUrl)
     articles = page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
 
-    for clipObj in GetEpisodeObjects(articles, title1, stripShow=sort):
-        clipList.add(clipObj)
+    clipList = GetEpisodeObjects(clipList, articles, title1, stripShow=sort)
+
+    if sort:
+        sortOnAirData(clipList)
 
     return clipList
 
-def GetClipsContainer(clipUrls, title1, title2):
-    clipList = ObjectContainer(title1=title1, title2=title2)
-    for url in clipUrls:
-        clipObj = GetEpisodeObject(url)
-        clipList.add(clipObj)
-    return clipList
+def GetRecommendedEpisodes(prevTitle=None):
 
-def GetShowUrls(showUrl=None, maxEp=100):
-    suffix        = "sida=1&antal=%d" % maxEp
-    page          = HTML.ElementFromURL(showUrl)
-    ajaxLinks     = page.xpath("//div[@class='playBoxContainer']//a/@data-baseurl")
-    links         = page.xpath("//div[@class='playDisplayTable']/a/@href")
-    epAjaxUrl = None
-    clipAjaxUrl = None
-    epUrls = []
-    clipUrls = []
+    oc = ObjectContainer(title1=prevTitle, title2=TEXT_RECOMMENDED)
 
-    for link in ajaxLinks:
-        if "/videos?" in link:
-            epAjaxUrl = URL_SITE + link + suffix
+    page = HTML.ElementFromURL(URL_SITE)
+    articles = page.xpath("//section[@id='recommended-videos']//article")
+    for article in articles:
+        url = article.xpath("./a/@href")[0]
+        if "http" in url:
+            continue
+        url = URL_SITE + url
+        show = None
+        title = GetFirstNonEmptyString(article.xpath(".//span[@class='playx_vertical-center-inner-container']/text()"))
+        summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
+        if summary: summary = unescapeHTML(summary)
+        thumb = article.xpath(".//img/@data-imagename")[0]
+        art = thumb
 
-        elif "/klipp?" in link:
-            clipAjaxUrl = URL_SITE + link + suffix
+        tmp = title.split(" - ", 1)
+        if len(tmp) > 1:
+            show = tmp[0]
 
-        elif "/live" in link:
-            Log("No handling for live links here at the moment")
+        oc.add(EpisodeObject(
+                url = url,
+                show = show,
+                title = title,
+                summary = summary,
+                thumb = thumb,
+                art = art))
+    return oc
 
-    for link in links:
-        if "/video" in link:
-            epUrls.append(URL_SITE + link)
-        elif "/klipp" in link:
-            clipUrls.append(URL_SITE + link)
-
-    return (epAjaxUrl, clipAjaxUrl, epUrls, clipUrls)
+def GetFirstNonEmptyString(stringList):
+    string = None
+    index = 0
+    while index < len(stringList):
+        string = stringList[index].strip()
+        if len(string) > 0:
+            break
+        else:
+            string = None
+            index = index + 1
+    return string
 
 @route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
-
-def MakeGroupContainer(articleList, prevTitle, title):
-    channelsList = ObjectContainer(title1=prevTitle, title2=title)
-    for article in articleList:
-        url = URL_SITE + article.xpath("./a/@href")[0]
-        title = article.get("data-title")
-        desc = article.get("data-description")
-        thumb = article.xpath(".//img/@src")[0]
-        Log(thumb)
-
-        show = EpisodeObject(
-                url = url,
-                title = title,
-                summary = desc,
-                thumb = thumb)
-        channelsList.add(show)
-
-    return channelsList
-
-def GetLatestShows(prevTitle):
-    page = HTML.ElementFromURL(URL_SITE, cacheTime = 0)
-    articles = page.xpath("//div[@id='playJs-latest-videos']//article")
-    return MakeGroupContainer(articles, prevTitle, TEXT_LATEST_SHOWS)
-
-def GetRecommendedEpisodes(prevTitle=None):
-    page = HTML.ElementFromURL(URL_SITE, cacheTime = 0)
-    articles = page.xpath("//div[@id='playJs-popular-videos']//article")
-    return MakeGroupContainer(articles, prevTitle, TEXT_RECOMMENDED)
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
@@ -511,125 +483,63 @@ def GetChannels(prevTitle):
         channelsList.add(show)
     return channelsList
 
-def GetLiveShows(prevTitle):
-    page = HTML.ElementFromURL(URL_LIVE, cacheTime=0)
-    showsList = ObjectContainer(title1=prevTitle, title2=TEXT_LIVE_SHOWS)
-    liveshows = page.xpath("//div[@id='playJs-live-channels']//a")
-
-    for a in liveshows[0:3]:
-        url = a.get("href")
-        url = URL_SITE + url
-        showsList.add(GetLiveEpisodeObject(url, GetLiveShowTitle(a)))
-
-    return showsList
-
 def GetLiveShowTitle(a):
-    times = a.xpath(".//time/text()")
+    times = a.xpath(".//time/text()") # obsolete xpath?
     timeText = " - ".join(times)
-    showName = a.xpath(".//span[@class='play-link-sub']/text()")[0]
+    showName = a.xpath(".//span[@class='play_link__sub']/text()")[0]
     showName = trimShowName(showName)
-    return timeText + " " + showName
-
-def GetLiveEpisodeObject(url, title):
-    page = HTML.ElementFromURL(url, cacheTime=0)
-    show = page.xpath("//h1[@class='play_h2 playx_color-white']/text()")[0]
-    description = unescapeHTML(page.xpath('//meta[@property="og:description"]/@content')[0])
-    duration = 0
-    thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
-
-    try:
-        air_date = page.xpath("//div[@class='playBoxConnectedToVideoMain']//time")[0].get("datetime")
-        air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
-        air_date = Datetime.ParseDate(air_date)
-    except:
-        Log.Exception("Error converting airdate")
-        air_date = None
-
-    return EpisodeObject(
-           url = url,
-           show = show,
-           title = title,
-           summary = description,
-           duration = duration,
-           thumb = thumb,
-           art = thumb,
-           originally_available_at = air_date
-           )
-
-def GetEpisodeObject(url):
-    try:
-       page = HTML.ElementFromURL(url)
-
-       show = page.xpath("//h1[@class='playVideoBoxHeadline-Inner']/text()")[0]
-       title = unescapeHTML(page.xpath('//meta[@property="og:title"]/@content')[0].split(' | ')[0])
-       description = unescapeHTML(page.xpath('//meta[@property="og:description"]/@content')[0])
-
-       try:
-           air_date = page.xpath("//div[@class='playBoxConnectedToVideoMain']//time")[0].get("datetime")
-           air_date = air_date.split('+')[0] #cut off timezone info as python can't parse this
-           air_date = Datetime.ParseDate(air_date)
-       except:
-           Log.Exception("Error converting airdate")
-           air_date = None
-
-       try:
-           duration = page.xpath("//div[@class='playVideoInfo']//span//strong/../text()")[3].split()[0]
-           duration = int(duration) * 60 * 1000 #millisecs
-       except:
-           duration = None
-
-       thumb =  page.xpath("//div[@class='playVideoBox']//a[@id='player']//img/@src")[0]
-
-       return EpisodeObject(
-               url = url,
-               show = show,
-               title = title,
-               summary = description,
-               duration = duration,
-               thumb = thumb,
-               art = thumb,
-               originally_available_at = air_date
-             )
-
-    except:
-        Log.Exception("An error occurred while attempting to retrieve the required meta data.")
+    return (timeText + " " + showName).strip()
 
 #------------ EPISODE FUNCTIONS ---------------------
 # Excpects a list of arcticle tags
-def GetEpisodeObjects(articles, showName, stripShow=False, addUrlPrefix=True):
-    resultList = []
+def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True):
 
     for article in articles:
         url = article.xpath("./a/@href")[0]
         if addUrlPrefix:
             url = URL_SITE + url
         show = showName
-        title = article.get("data-title")
+        if "Live " in article.xpath(".//span/text()")[0]:
+            title = GetLiveShowTitle(article)
+        else:
+            title = article.get("data-title")
         summary = unescapeHTML(article.get("data-description"))
+        availability = unescapeHTML(article.get("data-available"))
+        if len(availability) > 0:
+            summary = u'Tillgänglig: ' + availability + ". \n" + summary
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@data-imagename")[0]
         art = thumb
+
+        if showName and stripShow and showName in title:
+            title = re.sub(showName+"[ 	-:]*(.+)", "\\1", title)
+        elif not showName:
+            tmp = title.split(" - ", 1)
+            if len(tmp) > 1:
+                show = tmp[0]
+                if stripShow:
+                    title = tmp[1]
 
         try:
            air_date = article.get("data-broadcasted")
            if len(air_date) == 0:
                air_date = article.get("data-published")
            air_date = airDate2date(air_date)
-        except:
-           Log.Exception("Error converting airdate")
+        except Exception as e:
+           Log.Exception("Error converting airdate:%s" % e)
            air_date = None
 
-        resultList.append(EpisodeObject(
-            url = url,
-            show = show,
-            title = title,
-            summary = summary,
-            duration = duration,
-            thumb = thumb,
-            art = art,
-            originally_available_at = air_date))
+        oc.add(EpisodeObject(
+                url = url,
+                show = show,
+                title = title,
+                summary = summary,
+                duration = duration,
+                thumb = thumb,
+                art = art,
+                originally_available_at = air_date))
 
-    return resultList
+    return oc
 
 def dataLength2millisec(dataLength):
     durationList = dataLength.split()
@@ -672,8 +582,8 @@ def CreateOAShowList(programLinks, parentTitle=None):
             show.title = showName
             show.key = Callback(GetOAShowEpisodes, prevTitle=parentTitle, showUrl=showUrl, showName=showName)
             showsList.append(show)
-        except:
-            Log(VERSION)
+        except Exception as e:
+            Log(VERSION + "%s" % e)
             pass
 
     return showsList
@@ -796,9 +706,9 @@ def GetOAEpisodeObject(url, stripTitlePrefix=False):
                 index = episode,
                 originally_available_at = air_date)
 
-    except:
+    except Exception as e:
         Log(VERSION)
-        Log("Exception occurred parsing url " + url)
+        Log("Exception occurred parsing %s: %s " % (url, e))
 
 def airDate2date(dateString):
     if len(dateString) == 0:
