@@ -512,7 +512,10 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         art = thumb
 
         if showName and stripShow and showName in title:
-            title = re.sub(showName+"[ 	-:]*(.+)", "\\1", title)
+            orgTitle = title
+            title = re.sub(showName+"[ 	-]*(.+)", "\\1", title)
+            if title != orgTitle:
+                title = re.sub(":[	 ]+","",title)
         elif not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
