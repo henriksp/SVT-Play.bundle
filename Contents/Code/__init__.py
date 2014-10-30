@@ -513,7 +513,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         if addUrlPrefix:
             url = URL_SITE + url
         show = showName
-        if "Live " in article.xpath(".//span[@class='play_visually-hidden']/text()")[0]:
+        if IsLive(article):
             title = GetLiveShowTitle(article)
         else:
             title = article.get("data-title")
@@ -554,6 +554,10 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 originally_available_at = air_date))
 
     return oc
+
+def IsLive(article):
+    text = article.xpath(".//span[@class='play_visually-hidden']/text()")
+    return (text and "Live" in text[0])
 
 def dataLength2millisec(dataLength):
     durationList = dataLength.split()
