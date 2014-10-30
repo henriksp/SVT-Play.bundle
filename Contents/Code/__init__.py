@@ -103,7 +103,7 @@ def AddSections(menu):
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
     index = 0
     for section in pageElement.xpath(xpath):
-        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_h3')]/a/text()")[0]
+        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")[0]
 
         img = ICON
         try:
@@ -123,18 +123,19 @@ def GetSectionEpisodes(index, prevTitle, title):
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
     section = pageElement.xpath(xpath)[index]
     articles = section.xpath(".//article")
-    if len(articles[0].xpath(".//span[@class='play_h4']/text()")) > 0:
+    if articles[0].get("data-title"):
+        oc = GetEpisodeObjects(oc, articles, showName=None)
+    else:
         for article in articles:
             url = URL_SITE + article.xpath("./a/@href")[0]
             thumb = URL_SITE + article.xpath(".//img/@src")[0]
-            title = article.xpath(".//span[@class='play_h4']/text()")[0].strip()
+            title = article.xpath("./a/@title")[0].strip()
             # Nasty hack for OA in categories...
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
                 oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
             else:
                 oc.add(DirectoryObject(key=Callback(GetSectionShows, url=url, prevTitle=prevTitle, title=title), title=title, thumb=thumb))
-    else:
-        oc = GetEpisodeObjects(oc, articles, showName=None)
+
     return oc
 
 def GetSectionShows(url, prevTitle, title):
@@ -402,7 +403,7 @@ def GetRecommendedEpisodes(prevTitle=None):
             continue
         url = URL_SITE + url
         show = None
-        title = GetFirstNonEmptyString(article.xpath(".//span[@class='playx_vertical-center-inner-container']/text()"))
+        title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
         if summary: summary = unescapeHTML(summary)
         thumb = article.xpath(".//img/@data-imagename")[0]
@@ -439,7 +440,7 @@ def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
-    shows = page.xpath("//div[contains(concat(' ',@class,' '),' play_zapper')]//a")
+    shows = page.xpath("//div[contains(concat(' ',@class,' '),'play_video-info')]")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
     channelsList = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
 
@@ -450,16 +451,17 @@ def GetChannels(prevTitle):
         url = URL_CHANNELS + '/' + channel
         desc = None
         thumb = None
+        duration = None
 
         if thumb == None:
             thumb = URL_SITE + thumbBase % channel
 
-        title = show.xpath(".//span[@class='play_zapper__menu__item-title']/text()")[0]
+        title = show.xpath(".//h1/text()")[0]
 
         timestring = ""
 # Try to convert the time values to something readable
         try:
-            timeDiv = show.xpath(".//div[@class='play_progressbar__value playJsSchedule-Progress']")[0]
+            timeDiv = show.xpath(".//div[@class='play_progressbar__value--alt play_js-schedule__progressbar__progress playJsSchedule-Progress']")[0]
             starttime = timeDiv.get("data-starttime")
             endtime = timeDiv.get("data-endtime")
             s = int(starttime)/1000
@@ -467,6 +469,17 @@ def GetChannels(prevTitle):
             ss = time.strftime('%H:%M', time.localtime(s))
             es = time.strftime('%H:%M', time.localtime(e))
             timestring = " - (%s - %s)" % (ss, es)
+        except:
+            pass
+
+        try:
+            desc = show.xpath(".//p[contains(concat(' ',@class,' '),'-show-description')]/text()")[0].strip()
+            desc = unescapeHTML(desc)
+        except:
+            pass
+
+        try:
+            duration = dataLength2millisec(show.xpath(".//span[contains(concat(' ',@class,' '),'-show-duration')]/text()")[0].strip())
         except:
             pass
 
@@ -479,6 +492,7 @@ def GetChannels(prevTitle):
                 url = url,
                 title = channel + " - " + title + timestring,
                 summary = desc,
+                duration = duration,
                 thumb = thumb)
         channelsList.add(show)
     return channelsList
@@ -486,7 +500,7 @@ def GetChannels(prevTitle):
 def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()") # obsolete xpath?
     timeText = " - ".join(times)
-    showName = a.xpath(".//span[@class='play_link__sub']/text()")[0]
+    showName = a.xpath(".//span[@class='play_videolist-element__title-text']/text()")[0]
     showName = trimShowName(showName)
     return (timeText + " " + showName).strip()
 
@@ -499,7 +513,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         if addUrlPrefix:
             url = URL_SITE + url
         show = showName
-        if "Live " in article.xpath(".//span/text()")[0]:
+        if IsLive(article):
             title = GetLiveShowTitle(article)
         else:
             title = article.get("data-title")
@@ -508,7 +522,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         if len(availability) > 0:
             summary = u'Tillgänglig: ' + availability + ". \n" + summary
         duration = dataLength2millisec(article.get("data-length"))
-        thumb = article.xpath(".//img/@data-imagename")[0]
+        thumb = article.xpath(".//img/@src")[0]
         art = thumb
 
         if showName and stripShow and showName in title:
@@ -540,6 +554,10 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 originally_available_at = air_date))
 
     return oc
+
+def IsLive(article):
+    text = article.xpath(".//span[@class='play_visually-hidden']/text()")
+    return (text and "Live" in text[0])
 
 def dataLength2millisec(dataLength):
     durationList = dataLength.split()
