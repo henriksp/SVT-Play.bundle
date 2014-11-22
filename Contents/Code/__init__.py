@@ -99,26 +99,29 @@ def MainMenu():
 
 def AddSections(menu):
 
-    pageElement = HTML.ElementFromURL(URL_SITE)
-    xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
-    index = 0
-    for section in pageElement.xpath(xpath):
-        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/span/text()")
-        if (len(title) == 0):
-            title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
-        if (len(title) == 0):
-            continue;
-        title = title[0]
+    try:
+        pageElement = HTML.ElementFromURL(URL_SITE)
+        xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
+        index = 0
+        for section in pageElement.xpath(xpath):
+            title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/span/text()")
+            if (len(title) == 0):
+                title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
+            if (len(title) == 0):
+                continue;
+            title = title[0]
 
-        img = ICON
-        try:
-            img = sec2thumb[title]
-        except:
-            pass
+            img = ICON
+            try:
+                img = sec2thumb[title]
+            except:
+                pass
 
-        menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title),
+            menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title),
             title=title, thumb=R(img)))
-        index = index + 1
+            index = index + 1
+    except Exception as e:
+        Log.Exception("AddSections failed:%s" % e)
     return menu
 
 def GetSectionEpisodes(index, prevTitle, title):
