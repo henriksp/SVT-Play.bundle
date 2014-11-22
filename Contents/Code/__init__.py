@@ -117,8 +117,7 @@ def AddSections(menu):
             except:
                 pass
 
-            menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title),
-            title=title, thumb=R(img)))
+            menu.add(DirectoryObject(key=Callback(GetSectionEpisodes, index=index, prevTitle=TEXT_TITLE, title=title), title=title, thumb=R(img)))
             index = index + 1
     except Exception as e:
         Log.Exception("AddSections failed:%s" % e)
