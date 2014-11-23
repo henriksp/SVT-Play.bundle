@@ -103,7 +103,12 @@ def AddSections(menu):
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
     index = 0
     for section in pageElement.xpath(xpath):
-        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")[0]
+        title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/span/text()")
+        if (len(title) == 0):
+            title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
+        if (len(title) == 0):
+            continue;
+        title = title[0]
 
         img = ICON
         try:
