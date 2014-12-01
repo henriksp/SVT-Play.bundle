@@ -109,7 +109,7 @@ def AddSections(menu):
                 title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
             if (len(title) == 0):
                 continue;
-            title = title[0]
+            title = '/'.join(title)
 
             img = ICON
             try:
@@ -212,7 +212,7 @@ def Search (query):
             TEXT_SEARCH_RESULT_ERROR % orgQuery
             )
     else:
-        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH)
+        result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " '%s'" % unicode(orgQuery))
         if episodeHits > 0:
             result = ReturnSearchHits(searchUrl, episodeXpath, result, "%s(%i)" % (TEXT_EPISODES,episodeHits), typeHits > 1)
         if clipHits > 0:
@@ -271,7 +271,10 @@ def CreateShowDirObject(name, key):
     return CreateDirObject(name, key, GetShowImgUrl(name), GetShowSummary(name))
 
 def SearchShowTitle (query):
-    return GetAllIndex(TEXT_TITLE, TEXT_SEARCH, unicode(query))
+    return GetAllIndex(TEXT_TITLE, 
+                       TEXT_SEARCH + " '%s'" % unicode(query), 
+                       unicode(query)
+                       )
 
 #------------ SHOW FUNCTIONS ---------------------
 def GetIndexShows(prevTitle="", title2=TEXT_INDEX_SHOWS, titleFilter=None):
@@ -406,9 +409,8 @@ def GetRecommendedEpisodes(prevTitle=None):
     articles = page.xpath("//section[@id='recommended-videos']//article")
     for article in articles:
         url = article.xpath("./a/@href")[0]
-        if "http" in url:
-            continue
-        url = URL_SITE + url
+        if not "http" in url:
+            url = URL_SITE + url
         show = None
         title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
