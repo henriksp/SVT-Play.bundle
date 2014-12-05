@@ -247,7 +247,7 @@ def ReturnSearchShows(url, xpath, result, showOc=[]):
 
 def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
     if createDirectory:
-        if directoryTitle == TEXT_OA:
+        if TEXT_OA in directoryTitle:
             thumb = R(OA_ICON)
         else:
             thumb = R(ICON)
@@ -409,8 +409,6 @@ def GetRecommendedEpisodes(prevTitle=None):
     articles = page.xpath("//section[@id='recommended-videos']//article")
     for article in articles:
         url = article.xpath("./a/@href")[0]
-        if not "http" in url:
-            url = URL_SITE + url
         show = None
         title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
@@ -422,13 +420,18 @@ def GetRecommendedEpisodes(prevTitle=None):
         if len(tmp) > 1:
             show = tmp[0]
 
-        oc.add(EpisodeObject(
-                url = url,
-                show = show,
-                title = title,
-                summary = summary,
-                thumb = thumb,
-                art = art))
+        if not "http" in url:
+            oc.add(EpisodeObject(
+                    url = URL_SITE + url,
+                    show = show,
+                    title = title,
+                    summary = summary,
+                    thumb = thumb,
+                    art = art))
+        else:
+            # Assume Show
+            oc.add(CreateShowDirObject(title, key=Callback(GetShowEpisodes, prevTitle=prevTitle, showUrl=url, showName=title)))
+
     return oc
 
 def GetFirstNonEmptyString(stringList):
