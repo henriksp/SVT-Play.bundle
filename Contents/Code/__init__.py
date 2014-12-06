@@ -452,7 +452,7 @@ def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
 
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
-    shows = page.xpath("//div[contains(concat(' ',@class,' '),'play_video-info')]")
+    shows = page.xpath("//div[contains(concat(' ',@class,' '),'play_channels__active-video-info')]")
     thumbBase = "/public/images/channels/backgrounds/%s-background.jpg"
     channelsList = ObjectContainer(title1=prevTitle, title2=TEXT_CHANNELS)
 
