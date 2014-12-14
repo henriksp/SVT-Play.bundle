@@ -281,7 +281,7 @@ def GetIndexShows(prevTitle="", title2=TEXT_INDEX_SHOWS, titleFilter=None):
 
     showsList = ObjectContainer(title1=prevTitle, title2=title2)
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
+    programLinks = pageElement.xpath("//li[contains(concat(' ',@class, ' '),' play_js-filterable-item')]")
     for s in CreateShowList(programLinks, title2):
         if FilterTitle(s.title, titleFilter):
             showsList.add(s)
