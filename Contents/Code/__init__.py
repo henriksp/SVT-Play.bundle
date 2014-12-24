@@ -123,6 +123,7 @@ def AddSections(menu):
         Log.Exception("AddSections failed:%s" % e)
     return menu
 
+@route(PLUGIN_PREFIX + '/GetSectionEpisodes', index=int)
 def GetSectionEpisodes(index, prevTitle, title):
     oc = ObjectContainer(title1=prevTitle, title2=title)
 
@@ -145,6 +146,7 @@ def GetSectionEpisodes(index, prevTitle, title):
 
     return oc
 
+@route(PLUGIN_PREFIX + '/GetSectionShows')
 def GetSectionShows(url, prevTitle, title):
     oc = ObjectContainer(title1=prevTitle, title2=title)
     page = HTML.ElementFromURL(url)
@@ -161,6 +163,7 @@ def GetSectionShows(url, prevTitle, title):
     return oc
 
 #------------ SHOW FUNCTIONS ---------------------
+@route(PLUGIN_PREFIX + '/GetAllIndex')
 def GetAllIndex(prevTitle, title2=TEXT_INDEX_ALL, titleFilter=None):
     showsList = GetIndexShows(prevTitle, title2, titleFilter)
     for p in GetOAIndex(prevTitle, titleFilter).objects:
@@ -245,6 +248,7 @@ def ReturnSearchShows(url, xpath, result, showOc=[]):
             result.add(show)
     return result
 
+@route(PLUGIN_PREFIX + '/ReturnSearchHits')
 def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
     if createDirectory:
         if TEXT_OA in directoryTitle:
@@ -382,12 +386,28 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
         if len(page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")) > 0:
             clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
             resultList.add(clips)
-        for ep in epList.objects:
-            resultList.add(ep)
-        return resultList
-    else:
-        return epList
 
+    # Filter out variants
+    variants = ["textat", "syntolkat", u'teckenspråkstolkat']
+    for keyword in variants:
+        for ep in epList.objects:
+            if keyword in ep.title:
+                resultList.add(DirectoryObject(key=Callback(GetVariantContainer, variantUrl=showUrl, title1=title2, title2=keyword.title(), variant=keyword, sort=sort), title=keyword.title()))
+                break;
+
+    if len(resultList) > 0:
+        for ep in epList.objects:
+            skipEp = False
+            for keyword in variants:
+                if keyword in ep.title:
+                    skipEp = True
+                    break;
+            if not skipEp:
+                resultList.add(ep)
+        return resultList
+    return epList
+
+@route(PLUGIN_PREFIX + '/GetClipsContainer')
 def GetClipsContainer(clipUrl, title1, title2, sort=False):
     clipList = ObjectContainer(title1=title1, title2=unicode(title2))
 
@@ -401,6 +421,21 @@ def GetClipsContainer(clipUrl, title1, title2, sort=False):
 
     return clipList
 
+@route(PLUGIN_PREFIX + '/GetVariantContainer')
+def GetVariantContainer(variantUrl, title1, title2, variant, sort=False):
+    variantList = ObjectContainer(title1=title1, title2=unicode(title2))
+
+    page = HTML.ElementFromURL(variantUrl)
+    articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
+
+    variantList = GetEpisodeObjects(variantList, articles, showName=title1, stripShow=sort, titleFilter=variant)
+
+    if sort:
+        sortOnAirData(variantList)
+
+    return variantList
+
+@route(PLUGIN_PREFIX + '/GetRecommendedEpisodes')
 def GetRecommendedEpisodes(prevTitle=None):
 
     oc = ObjectContainer(title1=prevTitle, title2=TEXT_RECOMMENDED)
@@ -414,7 +449,6 @@ def GetRecommendedEpisodes(prevTitle=None):
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
         if summary: summary = unescapeHTML(summary)
         thumb = article.xpath(".//img/@data-imagename")[0]
-        art = thumb
 
         tmp = title.split(" - ", 1)
         if len(tmp) > 1:
@@ -427,7 +461,7 @@ def GetRecommendedEpisodes(prevTitle=None):
                     title = title,
                     summary = summary,
                     thumb = thumb,
-                    art = art))
+                    art = ThumbToArt(thumb)))
         else:
             # Assume Show
             oc.add(CreateShowDirObject(title, key=Callback(GetShowEpisodes, prevTitle=prevTitle, showUrl=url, showName=title)))
@@ -450,6 +484,7 @@ def GetFirstNonEmptyString(stringList):
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     return MakeShowContainer(showUrl, prevTitle, showName)
 
+@route(PLUGIN_PREFIX + '/GetChannels')
 def GetChannels(prevTitle):
     page = HTML.ElementFromURL(URL_CHANNELS, cacheTime = 0)
     shows = page.xpath("//div[contains(concat(' ',@class,' '),'play_channels__active-video-info')]")
@@ -518,7 +553,7 @@ def GetLiveShowTitle(a):
 
 #------------ EPISODE FUNCTIONS ---------------------
 # Excpects a list of arcticle tags
-def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True):
+def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True, titleFilter=None):
 
     for article in articles:
         url = article.xpath("./a/@href")[0]
@@ -535,16 +570,21 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
             summary = u'Tillgänglig: ' + availability + ". \n" + summary
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@src")[0]
-        art = thumb
 
-        if showName and stripShow and showName in title:
-            title = re.sub(showName+"[ 	-]*(:[ 	-]*)*(.+)", "\\2", title)
+        if showName and stripShow and re.search(r"\b%s\b" % showName, title):
+            title = re.sub(showName+"[ 	\-:]*(.+)", "\\1", title)
         elif not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
                 show = tmp[0]
                 if stripShow:
                     title = tmp[1]
+
+        if titleFilter:
+            if not titleFilter in title:
+                continue
+            else:
+                title = re.sub("[ 	\-:]*" + titleFilter + "[	 ]*", "", title)
 
         try:
            air_date = article.get("data-broadcasted")
@@ -562,7 +602,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 summary = summary,
                 duration = duration,
                 thumb = thumb,
-                art = art,
+                art = ThumbToArt(thumb),
                 originally_available_at = air_date))
 
     return oc
@@ -591,6 +631,7 @@ def dataLength2millisec(dataLength):
         return int(durationList[0]) * 1000
 
 #------------OPEN ARCHIVE FUNCTIONS ---------------------
+@route(PLUGIN_PREFIX + '/GetOAIndex')
 def GetOAIndex(prevTitle, titleFilter=None):
     showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_OA)
     pageElement = HTML.ElementFromURL(URL_OA_INDEX)
@@ -618,6 +659,7 @@ def CreateOAShowList(programLinks, parentTitle=None):
 
     return showsList
 
+@route(PLUGIN_PREFIX + '/GetOAShowEpisodes')
 def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     episodes = ObjectContainer()
     suffix = "?sida=%d&sort=tid_fallande&embed=true"
@@ -657,7 +699,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     sortOnAirData(episodes)
 
     if len(seasons) > 0:
-        newOc = ObjectContainer(title1=prevTitle, title2=showName)
+        newOc = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName))
         seasons_len = len(seasons)
         seasons.sort(key=lambda obj: int(obj))
         seasons_episodes.sort(key=lambda obj: int(obj[0]))
@@ -670,9 +712,9 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
 
     return episodes
 
-# @route(PLUGIN_PREFIX + '/GetOASeasonEpisode', 'GET')
+@route(PLUGIN_PREFIX + '/GetOASeasonEpisode', urlList=list)
 def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
-    episodes = ObjectContainer(title1=prevTitle, title2=showName+" - "+TEXT_SEASON % urlList[0])
+    episodes = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName+" - "+TEXT_SEASON % urlList[0]))
     skip=True
     for url in urlList:
         if skip:
@@ -819,6 +861,9 @@ def unescapeHTML(text):
                 pass
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
+
+def ThumbToArt(thumb):
+    return thumb.replace('/small/', '/extralarge/')
 
 def sortOnAirData(Objects):
     for obj in Objects.objects:
