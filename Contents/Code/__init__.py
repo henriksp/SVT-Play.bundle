@@ -325,7 +325,7 @@ def GetShowImgUrl(showName):
 
 def HarvestShowData():
     pageElement = HTML.ElementFromURL(URL_INDEX)
-    programLinks = pageElement.xpath("//li[@class='play_js-filterable-item']")
+    programLinks = pageElement.xpath("//li[contains(concat(' ',@class,' '),'play_js-filterable-item')]")
     json_obj = JSON.ObjectFromURL(URL_PROGRAMS)
 
     for programLink in programLinks:
