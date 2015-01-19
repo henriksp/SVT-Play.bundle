@@ -29,6 +29,7 @@ TEXT_RECOMMENDED = u"Rekommenderat"
 TEXT_SEARCH_RESULT = u"Sökresultat"
 TEXT_SEARCH_RESULT_ERROR = u"Hittade inga resultat för: '%s'"
 TEXT_CLIPS = u"Klipp"
+TEXT_LIVE = u"Live"
 TEXT_EPISODES = u"Avsnitt"
 TEXT_SEASON = u"Säsong %s"
 
@@ -187,6 +188,7 @@ def Search (query):
     query = String.Quote(query.replace(' ', '+'))
 
     showXpath    = "//div[@id='search-titles']/div/div/article"
+    liveXpath    = "//div[@id='search-live']/div/div/article"
     episodeXpath = "//div[@id='search-episodes']/div/div/article"
     clipXpath    = "//div[@id='search-clips']/div/div/article"
     oaXpath      = "//div[@id='search-oppetarkiv']/div/div/article"
@@ -195,12 +197,15 @@ def Search (query):
 
     searchElement = HTML.ElementFromURL(searchUrl)
     showHits      = len(searchElement.xpath(showXpath)) + len(showOc)
+    liveHits      = len(searchElement.xpath(liveXpath))
     episodeHits   = len(searchElement.xpath(episodeXpath))
     clipHits      = len(searchElement.xpath(clipXpath))
     oaHits        = len(searchElement.xpath(oaXpath))
 
     typeHits     = 0
     if showHits  > 0:
+        typeHits = typeHits+1
+    if liveHits  > 0:
         typeHits = typeHits+1
     if episodeHits > 0:
         typeHits = typeHits+1
@@ -216,6 +221,8 @@ def Search (query):
             )
     else:
         result = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " '%s'" % unicode(orgQuery))
+        if liveHits > 0:
+            result = ReturnSearchHits(searchUrl, liveXpath, result, "%s(%i)" % (TEXT_LIVE,liveHits), typeHits > 1)
         if episodeHits > 0:
             result = ReturnSearchHits(searchUrl, episodeXpath, result, "%s(%i)" % (TEXT_EPISODES,episodeHits), typeHits > 1)
         if clipHits > 0:
@@ -571,8 +578,8 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@src")[0]
 
-        if showName and stripShow and re.search(r"\b%s\b" % showName, title):
-            title = re.sub(showName+"[ 	\-:]*(.+)", "\\1", title)
+        if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE).search(title):
+            title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title)
         elif not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
@@ -584,7 +591,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
             if not titleFilter in title:
                 continue
             else:
-                title = re.sub("[ 	\-:]*" + titleFilter + "[	 ]*", "", title)
+                title = re.sub("[ 	\-:,]*" + titleFilter + "[	 ]*", "", title)
 
         try:
            air_date = article.get("data-broadcasted")
