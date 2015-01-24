@@ -126,7 +126,7 @@ def AddSections(menu):
 
 @route(PLUGIN_PREFIX + '/GetSectionEpisodes', index=int)
 def GetSectionEpisodes(index, prevTitle, title):
-    oc = ObjectContainer(title1=prevTitle, title2=title)
+    oc = ObjectContainer(title1=unicode(prevTitle), title2=unicode(title))
 
     pageElement = HTML.ElementFromURL(URL_SITE, cacheTime=0)
     xpath = "//section[contains(concat(' ',@class,' '),' play_js-hovered-list')]"
@@ -149,7 +149,7 @@ def GetSectionEpisodes(index, prevTitle, title):
 
 @route(PLUGIN_PREFIX + '/GetSectionShows')
 def GetSectionShows(url, prevTitle, title):
-    oc = ObjectContainer(title1=prevTitle, title2=title)
+    oc = ObjectContainer(title1=prevTitle, title2=unicode(title))
     page = HTML.ElementFromURL(url)
     articles = page.xpath("//div[@id='playJs-alphabetic-list']//article")
     # For 'nyheter, there is no good common limiter of the articles.
@@ -378,28 +378,42 @@ def HarvestShowData():
             Log("Error harvesting show data: %s %s" % (programLink.get('href'), e))
             pass
 
-def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, maxEps=500):
+def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, maxEps=500, seasonFilter=None):
     title2 = unicode(title2)
     epList = ObjectContainer(title1=title1, title2=title2)
     resultList = ObjectContainer(title1=title1, title2=title2)
+    seasonList = []
 
     page = HTML.ElementFromURL(showUrl)
     articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
 
-    epList = GetEpisodeObjects(epList, articles, title2, stripShow=sort)
-
+    if not isinstance(seasonFilter, int):
+        showName = title2
+    else:
+        # In case specific season is requested, title2 is set to name of the Season. Show is found in title1
+        showName = title1
+    epList = GetEpisodeObjects(epList, articles, showName, stripShow=sort, seasonFilter=seasonFilter)
     if addClips:
         page = HTML.ElementFromURL(showUrl)
         if len(page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")) > 0:
             clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
             resultList.add(clips)
 
+    # Partition in seasons
+    if not isinstance(seasonFilter, int):
+        epList, seasonFilter, seasonList = CheckSeasons(epList)
+    for season in seasonList:
+        resultList.add(DirectoryObject(key=Callback(GetSeasonEpisodes, seasonUrl=showUrl, title1=title2, title2=TEXT_SEASON % season, season=season, sort=sort), title=TEXT_SEASON % season))
+
+    if sort:
+        sortOnIndex(epList)
+
     # Filter out variants
     variants = ["textat", "syntolkat", u'teckensprÃ¥kstolkat']
     for keyword in variants:
         for ep in epList.objects:
             if keyword in ep.title:
-                resultList.add(DirectoryObject(key=Callback(GetVariantContainer, variantUrl=showUrl, title1=title2, title2=keyword.title(), variant=keyword, sort=sort), title=keyword.title()))
+                resultList.add(DirectoryObject(key=Callback(GetVariantContainer, variantUrl=showUrl, showName=showName, title1=title2, title2=keyword.title(), variant=keyword, seasonFilter=seasonFilter, sort=sort), title=keyword.title()))
                 break;
 
     if len(resultList) > 0:
@@ -414,9 +428,35 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
         return resultList
     return epList
 
+def CheckSeasons(epList):
+    seasonList = []
+    newEpList  = ObjectContainer(title1=epList.title1, title2=epList.title2)
+    for ep in epList.objects:
+        if ep.season in seasonList:
+            # Season already added
+            continue
+        elif ep.season:
+            # New season, add it.
+            seasonList.append(ep.season)
+        else:
+            # Episode without Season - skip season filtering
+            seasonList = []
+            break
+
+    if len(seasonList) > 1:
+        # Only "hide" episodes in older seasons, i.e. show episodes of latest season.
+        seasonList.sort(key=lambda obj: int(obj), reverse=True)
+        for ep in filter(lambda e: e.season == seasonList[0], epList.objects):
+            newEpList.add(ep)
+        season = seasonList.pop(0)
+        seasonList.reverse()
+        return newEpList, season, seasonList
+    else:
+        return epList, None, []
+
 @route(PLUGIN_PREFIX + '/GetClipsContainer')
 def GetClipsContainer(clipUrl, title1, title2, sort=False):
-    clipList = ObjectContainer(title1=title1, title2=unicode(title2))
+    clipList = ObjectContainer(title1=unicode(title1), title2=unicode(title2))
 
     page = HTML.ElementFromURL(clipUrl)
     articles = page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
@@ -424,23 +464,29 @@ def GetClipsContainer(clipUrl, title1, title2, sort=False):
     clipList = GetEpisodeObjects(clipList, articles, title1, stripShow=sort)
 
     if sort:
-        sortOnAirData(clipList)
+        sortOnIndex(clipList)
 
     return clipList
 
-@route(PLUGIN_PREFIX + '/GetVariantContainer')
-def GetVariantContainer(variantUrl, title1, title2, variant, sort=False):
+@route(PLUGIN_PREFIX + '/GetVariantContainer', seasonFilter=int)
+def GetVariantContainer(variantUrl, showName, title1, title2, variant, seasonFilter=None, sort=False):
     variantList = ObjectContainer(title1=title1, title2=unicode(title2))
 
     page = HTML.ElementFromURL(variantUrl)
     articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
 
-    variantList = GetEpisodeObjects(variantList, articles, showName=title1, stripShow=sort, titleFilter=variant)
+    variantList = GetEpisodeObjects(variantList, articles, showName=showName, stripShow=sort, titleFilter=variant, seasonFilter=seasonFilter)
 
     if sort:
-        sortOnAirData(variantList)
+        sortOnIndex(variantList)
 
     return variantList
+
+@route(PLUGIN_PREFIX + '/GetSeasonEpisodes', season=int)
+def GetSeasonEpisodes(seasonUrl, title1, title2, season, sort=False):
+
+    # Re-use MakeShowContainer to be able to mix seasons with "variants"
+    return MakeShowContainer(showUrl=seasonUrl, title1=title1, title2=title2, sort=sort, addClips=False, seasonFilter=season)
 
 @route(PLUGIN_PREFIX + '/GetRecommendedEpisodes')
 def GetRecommendedEpisodes(prevTitle=None):
@@ -455,8 +501,7 @@ def GetRecommendedEpisodes(prevTitle=None):
         title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
         if summary: summary = unescapeHTML(summary)
-        thumb = article.xpath(".//img/@data-imagename")[0]
-
+        thumb = article.xpath(".//img/@data-imagename")[0].replace("_imax", "")
         tmp = title.split(" - ", 1)
         if len(tmp) > 1:
             show = tmp[0]
@@ -560,12 +605,16 @@ def GetLiveShowTitle(a):
 
 #------------ EPISODE FUNCTIONS ---------------------
 # Excpects a list of arcticle tags
-def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True, titleFilter=None):
+def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True, titleFilter=None, seasonFilter=None):
 
     for article in articles:
         url = article.xpath("./a/@href")[0]
         if addUrlPrefix:
             url = URL_SITE + url
+        try: 
+            showName = showName.decode('utf-8')
+        except: 
+            pass
         show = showName
         if IsLive(article):
             title = GetLiveShowTitle(article)
@@ -593,6 +642,23 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
             else:
                 title = re.sub("[ 	\-:,]*" + titleFilter + "[	 ]*", "", title)
 
+        if stripShow:
+            seasonInfo = re.sub("[	\n]*", "", article.xpath(".//span[@class='play_videolist-element__title-text']/text()")[0].strip())
+        else:
+            seasonInfo = re.sub("[	\n]*", "", article.xpath(".//span[@class='play_videolist-element__subtext']/text()")[0].strip())
+
+        season = None
+        if re.search("[Ss]äsong +[0-9]+", seasonInfo):
+            season = int(re.sub(".*Säsong +([0-9]+).*", "\\1", seasonInfo))
+
+        if isinstance(seasonFilter, int):
+            if season != seasonFilter:
+                continue
+
+        episode = None
+        if re.search("[Aa]vsnitt +[0-9]+", seasonInfo):
+            episode = int(re.sub(".*[Aa]vsnitt +([0-9]+).*", "\\1", seasonInfo))
+
         try:
            air_date = article.get("data-broadcasted")
            if len(air_date) == 0:
@@ -608,6 +674,8 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 title = title,
                 summary = summary,
                 duration = duration,
+                season = season,
+                index = episode,
                 thumb = thumb,
                 art = ThumbToArt(thumb),
                 originally_available_at = air_date))
@@ -703,7 +771,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
         i = i + 1
         if len(nextPage) == 0:
             morePages = False
-    sortOnAirData(episodes)
+    sortOnIndex(episodes)
 
     if len(seasons) > 0:
         newOc = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName))
@@ -722,16 +790,12 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
 @route(PLUGIN_PREFIX + '/GetOASeasonEpisode', urlList=list)
 def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
     episodes = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName+" - "+TEXT_SEASON % urlList[0]))
-    skip=True
-    for url in urlList:
-        if skip:
-            skip = False
-            # First index contains season number
-            continue
+    # First index contains season number
+    for url in urlList[1:]:
         eo = GetOAEpisodeObject(url, stripTitlePrefix=True)
         if eo != None:
             episodes.add(eo)
-    # sortOnAirData(episodes) - seems "offical" plugin don't want this...
+    # sortOnIndex(episodes) - seems "offical" plugin don't want this...
     return episodes
 
 def GetOAEpisodeObject(url, stripTitlePrefix=False):
@@ -871,6 +935,12 @@ def unescapeHTML(text):
 
 def ThumbToArt(thumb):
     return thumb.replace('/small/', '/extralarge/')
+
+def sortOnIndex(Objects):
+    for obj in Objects.objects:
+        if obj.index == None or obj.season == None:
+            return sortOnAirData(Objects)
+    return Objects.objects.sort(key=lambda obj: (obj.season, obj.index))
 
 def sortOnAirData(Objects):
     for obj in Objects.objects:
