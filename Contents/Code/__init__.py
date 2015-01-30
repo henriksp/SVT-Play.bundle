@@ -405,8 +405,8 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     for season in seasonList:
         resultList.add(DirectoryObject(key=Callback(GetSeasonEpisodes, seasonUrl=showUrl, title1=title2, title2=TEXT_SEASON % season, season=season, sort=sort), title=TEXT_SEASON % season))
 
-    if sort:
-        sortOnIndex(epList)
+    # if sort:
+    #     sortOnIndex(epList)
 
     # Filter out variants
     variants = ["textat", "syntolkat", u'teckenspråkstolkat']
@@ -463,8 +463,8 @@ def GetClipsContainer(clipUrl, title1, title2, sort=False):
 
     clipList = GetEpisodeObjects(clipList, articles, title1, stripShow=sort)
 
-    if sort:
-        sortOnIndex(clipList)
+    # if sort:
+    #     sortOnIndex(clipList)
 
     return clipList
 
@@ -477,8 +477,8 @@ def GetVariantContainer(variantUrl, showName, title1, title2, variant, seasonFil
 
     variantList = GetEpisodeObjects(variantList, articles, showName=showName, stripShow=sort, titleFilter=variant, seasonFilter=seasonFilter)
 
-    if sort:
-        sortOnIndex(variantList)
+    # if sort:
+    #     sortOnIndex(variantList)
 
     return variantList
 
@@ -534,7 +534,7 @@ def GetFirstNonEmptyString(stringList):
 
 @route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
-    return MakeShowContainer(showUrl, prevTitle, showName)
+    return MakeShowContainer(showUrl, prevTitle, showName, sort=True)
 
 @route(PLUGIN_PREFIX + '/GetChannels')
 def GetChannels(prevTitle):
@@ -771,7 +771,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
         i = i + 1
         if len(nextPage) == 0:
             morePages = False
-    sortOnIndex(episodes)
+    # sortOnIndex(
 
     if len(seasons) > 0:
         newOc = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName))
