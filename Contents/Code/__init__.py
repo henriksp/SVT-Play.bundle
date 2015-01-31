@@ -110,7 +110,7 @@ def AddSections(menu):
                 title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
             if (len(title) == 0):
                 continue;
-            title = '/'.join(title)
+            title = unicode('/'.join(title))
 
             img = ICON
             try:
@@ -138,7 +138,7 @@ def GetSectionEpisodes(index, prevTitle, title):
         for article in articles:
             url = URL_SITE + article.xpath("./a/@href")[0]
             thumb = URL_SITE + article.xpath(".//img/@src")[0]
-            title = article.xpath("./a/@title")[0].strip()
+            title = unicode(article.xpath("./a/@title")[0].strip())
             # Nasty hack for OA in categories...
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
                 oc.add(DirectoryObject(key=Callback(GetOAIndex, prevTitle=prevTitle), title=title, thumb=thumb))
@@ -534,7 +534,7 @@ def GetFirstNonEmptyString(stringList):
 
 @route('/video/svt/episodes/{prevTitle}', 'GET')
 def GetShowEpisodes(prevTitle=None, showUrl=None, showName=""):
-    return MakeShowContainer(showUrl, prevTitle, showName)
+    return MakeShowContainer(showUrl, prevTitle, showName, sort=True)
 
 @route(PLUGIN_PREFIX + '/GetChannels')
 def GetChannels(prevTitle):
@@ -627,8 +627,8 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         duration = dataLength2millisec(article.get("data-length"))
         thumb = article.xpath(".//img/@src")[0]
 
-        if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE).search(title):
-            title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title)
+        if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
+            title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
         elif not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
@@ -795,7 +795,7 @@ def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
         eo = GetOAEpisodeObject(url, stripTitlePrefix=True)
         if eo != None:
             episodes.add(eo)
-    # sortOnIndex(episodes) - seems "offical" plugin don't want this...
+    sortOnIndex(episodes)
     return episodes
 
 def GetOAEpisodeObject(url, stripTitlePrefix=False):
@@ -940,13 +940,13 @@ def sortOnIndex(Objects):
     for obj in Objects.objects:
         if obj.index == None or obj.season == None:
             return sortOnAirData(Objects)
-    return Objects.objects.sort(key=lambda obj: (obj.season, obj.index))
+    return Objects.objects.sort(key=lambda obj: (obj.season, obj.index), reverse=True)
 
 def sortOnAirData(Objects):
     for obj in Objects.objects:
         if obj.originally_available_at == None:
-            return Objects.objects.reverse()
-    return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title))
+            return Objects
+    return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title), reverse=True)
 
 def trimShowName(showName):
     showName = showName.strip().split()
