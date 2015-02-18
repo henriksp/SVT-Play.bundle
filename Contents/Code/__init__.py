@@ -37,6 +37,8 @@ ART = 'art-default.jpg'
 ICON = 'icon-default.png'
 OA_ICON = 'category_oppet_arkiv.png'
 
+OA_CHUNK_SIZE = 10
+
 CACHE_1H = 60 * 60
 CACHE_1DAY = CACHE_1H * 24
 CACHE_30DAYS = CACHE_1DAY * 30
@@ -620,12 +622,23 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
             title = GetLiveShowTitle(article)
         else:
             title = article.get("data-title")
-        summary = unescapeHTML(article.get("data-description"))
+        
+        # Get the longer description when available
+        try: 
+            if not URL_OA_LABEL in url and len(article.get("data-description")) > 0:
+                summary = unescapeHTML(article.xpath("./a/@title")[0])
+            else:
+                summary = ""
+        except Exception as e:
+            summary = ""
+        if len(summary) == 0:
+            summary = unescapeHTML(article.get("data-description"))
+        
         availability = unescapeHTML(article.get("data-available"))
         if len(availability) > 0:
             summary = u'Tillgänglig: ' + availability + ". \n" + summary
         duration = dataLength2millisec(article.get("data-length"))
-        thumb = article.xpath(".//img/@src")[0]
+        thumb = article.xpath(".//img/@src")[0].strip()
 
         if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
             title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
@@ -743,6 +756,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     seasons = []
     # index 0 contains Season number - the rest of the indices contains urls to episodes of that season.
     seasons_episodes = []
+    indexed_episodes = []
     while morePages:
         pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
         epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
@@ -763,6 +777,10 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
                         ep_index += 1
                 seasons_episodes[ep_index].append(url)
                 continue
+            elif "-avsnitt-" in url:
+                index = re.sub(".*-avsnitt-([0-9]+).*", "\\1", url)
+                indexed_episodes.append((index, url))
+                continue
             else:
                 eo = GetOAEpisodeObject(url)
                 if eo != None:
@@ -773,19 +791,46 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
             morePages = False
     sortOnIndex(episodes)
 
-    if len(seasons) > 0:
+    if len(seasons) > 0 or len(indexed_episodes) > OA_CHUNK_SIZE:
         newOc = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName))
-        seasons_len = len(seasons)
-        seasons.sort(key=lambda obj: int(obj))
-        seasons_episodes.sort(key=lambda obj: int(obj[0]))
-        while seasons_len > 0:
-            newOc.add(DirectoryObject(key=Callback(GetOASeasonEpisode, urlList=seasons_episodes[seasons_len-1], prevTitle=prevTitle, showName=showName), title = TEXT_SEASON % str(seasons[seasons_len-1]), thumb=R(ICON)))
-            seasons_len = seasons_len - 1
+        if len(seasons) > 0:
+            seasons_len = len(seasons)
+            seasons.sort(key=lambda obj: int(obj))
+            seasons_episodes.sort(key=lambda obj: int(obj[0]))
+            while seasons_len > 0:
+                newOc.add(DirectoryObject(key=Callback(GetOASeasonEpisode, urlList=seasons_episodes[seasons_len-1], prevTitle=prevTitle, showName=showName), title = TEXT_SEASON % str(seasons[seasons_len-1]), thumb=R(ICON)))
+                seasons_len = seasons_len - 1
+
+        if len(indexed_episodes) > OA_CHUNK_SIZE:
+            indexed_episodes.sort(key=lambda obj: int(obj[0]),reverse=True)
+            chunk_index = 0
+            while chunk_index < len(indexed_episodes):
+                chunk_title = GetOAChunkTitle(indexed_episodes, chunk_index)
+                newOc.add(DirectoryObject(key=Callback(GetOAChunkEpisodes, urlList=indexed_episodes, chunk_index=chunk_index, prevTitle=prevTitle, showName=showName), title=chunk_title, thumb=R(ICON)))
+                chunk_index = chunk_index+OA_CHUNK_SIZE
+
         for ep in episodes.objects:
             newOc.add(ep)
         return newOc
+    
+    else:
+        while len(indexed_episodes) > 0:
+            eo = GetOAEpisodeObject(indexed_episodes.pop()[1])
+            if eo != None:
+                episodes.add(eo)
+        sortOnIndex(episodes)
+        episodes.title1=unicode(prevTitle)
+        episodes.title2=unicode(showName)
 
     return episodes
+
+def GetOAChunkTitle(episodes, chunk_index):
+    first = episodes[chunk_index][0]
+    if len(episodes) > (chunk_index+OA_CHUNK_SIZE):
+        last = episodes[chunk_index+OA_CHUNK_SIZE-1][0]
+    else:
+        last = episodes[len(episodes)-1][0]
+    return "Avsnitt %s-%s" % (first, last)
 
 @route(PLUGIN_PREFIX + '/GetOASeasonEpisode', urlList=list)
 def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
@@ -796,6 +841,20 @@ def GetOASeasonEpisode(urlList=[], prevTitle="", showName=""):
         if eo != None:
             episodes.add(eo)
     sortOnIndex(episodes)
+    return episodes
+
+@route(PLUGIN_PREFIX + '/GetOAChunkEpisodes', urlList=list, chunk_index=int)
+def GetOAChunkEpisodes(urlList=[], chunk_index=0, prevTitle="", showName=""):
+    
+    episodes = ObjectContainer(title1=unicode(prevTitle), title2=unicode(showName+" - "+ GetOAChunkTitle(urlList,chunk_index)))
+    for url in urlList[chunk_index:chunk_index+OA_CHUNK_SIZE]:
+        eo = GetOAEpisodeObject(url[1], stripTitlePrefix=True)
+        if eo != None:
+            episodes.add(eo)
+    sortOnIndex(episodes)
+    chunk_index = chunk_index+OA_CHUNK_SIZE
+    if len(urlList) > chunk_index:
+        episodes.add(NextPageObject(key=Callback(GetOAChunkEpisodes, urlList=urlList, chunk_index=chunk_index, prevTitle=prevTitle, showName=showName), title=GetOAChunkTitle(urlList,chunk_index), art=R(ART)))
     return episodes
 
 def GetOAEpisodeObject(url, stripTitlePrefix=False):
