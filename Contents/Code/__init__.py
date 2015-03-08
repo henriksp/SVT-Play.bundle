@@ -139,7 +139,11 @@ def GetSectionEpisodes(index, prevTitle, title):
     else:
         for article in articles:
             url = URL_SITE + article.xpath("./a/@href")[0]
-            thumb = URL_SITE + article.xpath(".//img/@src")[0]
+            thumb = article.xpath(".//img/@src")[0]
+            if re.match("^//", thumb):
+                thumb = "http:" + thumb
+            else:
+                thumb = URL_SITE + thumb
             title = unicode(article.xpath("./a/@title")[0].strip())
             # Nasty hack for OA in categories...
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
@@ -329,7 +333,7 @@ def GetShowImgUrl(showName):
     d = Dict[SHOW_SUM]
     showName = unicode(showName)
     if showName in d:
-        return d[showName][3]
+        return d[showName][3].replace('/small/', '/medium/')
     return None
 
 def HarvestShowData():
@@ -387,7 +391,7 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     seasonList = []
 
     page = HTML.ElementFromURL(showUrl)
-    articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
+    articles = page.xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
 
     if not isinstance(seasonFilter, int):
         showName = title2
@@ -397,7 +401,7 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     epList = GetEpisodeObjects(epList, articles, showName, stripShow=sort, seasonFilter=seasonFilter)
     if addClips:
         page = HTML.ElementFromURL(showUrl)
-        if len(page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")) > 0:
+        if len(page.xpath("//div[@id='play_js-tabpanel-more-clips']//article")) > 0:
             clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
             resultList.add(clips)
 
@@ -461,7 +465,7 @@ def GetClipsContainer(clipUrl, title1, title2, sort=False):
     clipList = ObjectContainer(title1=unicode(title1), title2=unicode(title2))
 
     page = HTML.ElementFromURL(clipUrl)
-    articles = page.xpath("//div[@id='playJs-more-clips']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
+    articles = page.xpath("//div[@id='play_js-tabpanel-more-clips']//article")
 
     clipList = GetEpisodeObjects(clipList, articles, title1, stripShow=sort)
 
@@ -514,7 +518,7 @@ def GetRecommendedEpisodes(prevTitle=None):
                     show = show,
                     title = title,
                     summary = summary,
-                    thumb = thumb,
+                    thumb = thumb.replace('/small/','/medium/'),
                     art = ThumbToArt(thumb)))
         else:
             # Assume Show
@@ -594,7 +598,8 @@ def GetChannels(prevTitle):
                 title = channel + " - " + title + timestring,
                 summary = desc,
                 duration = duration,
-                thumb = thumb)
+                thumb = thumb.replace('/small/','/medium/')
+                )
         channelsList.add(show)
     return channelsList
 
@@ -602,7 +607,7 @@ def GetLiveShowTitle(a):
     times = a.xpath(".//time/text()") # obsolete xpath?
     timeText = " - ".join(times)
     showName = a.xpath(".//span[@class='play_videolist-element__title-text']/text()")[0]
-    showName = trimShowName(showName)
+    showName = trim(showName)
     return (timeText + " " + showName).strip()
 
 #------------ EPISODE FUNCTIONS ---------------------
@@ -610,35 +615,45 @@ def GetLiveShowTitle(a):
 def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True, titleFilter=None, seasonFilter=None):
 
     for article in articles:
-        url = article.xpath("./a/@href")[0]
+        if stripShow:
+            title, summary, availability, duration, air_date = GetShowEpisodeData(article, showName)
+        else:
+            if IsLive(article):
+                title = GetLiveShowTitle(article)
+            else:
+                title = article.get("data-title")
+
+            # Get the longer description when available
+            try: 
+                if not URL_OA_LABEL in url and len(article.get("data-description")) > 0:
+                    summary = unescapeHTML(article.xpath("./a/@title")[0])
+                else:
+                    summary = ""
+            except Exception as e:
+                Log("JTDEBUG new summary failed:%s" % e)
+                summary = ""
+            if len(summary) == 0 and article.get("data-description"):
+                summary = unescapeHTML(article.get("data-description"))
+
+            availability = article.get("data-available")
+            duration = dataLength2millisec(article.get("data-length"))
+            air_date = article.get("data-broadcasted")
+            if not air_date or len(air_date) == 0:
+                air_date = article.get("data-published")
+
+        # Common part
+        url = article.xpath(".//a/@href")[0]
         if addUrlPrefix:
             url = URL_SITE + url
+        thumb = article.xpath(".//img/@src")[0].strip()
         try: 
             showName = showName.decode('utf-8')
         except: 
             pass
         show = showName
-        if IsLive(article):
-            title = GetLiveShowTitle(article)
-        else:
-            title = article.get("data-title")
-        
-        # Get the longer description when available
-        try: 
-            if not URL_OA_LABEL in url and len(article.get("data-description")) > 0:
-                summary = unescapeHTML(article.xpath("./a/@title")[0])
-            else:
-                summary = ""
-        except Exception as e:
-            summary = ""
-        if len(summary) == 0:
-            summary = unescapeHTML(article.get("data-description"))
-        
-        availability = unescapeHTML(article.get("data-available"))
-        if len(availability) > 0:
-            summary = u'Tillg√§nglig: ' + availability + ". \n" + summary
-        duration = dataLength2millisec(article.get("data-length"))
-        thumb = article.xpath(".//img/@src")[0].strip()
+            
+        if availability and len(availability) > 0:
+            summary = u'Tillg√§nglig: ' + unescapeHTML(availability) + ". \n" + summary
 
         if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
             title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
@@ -656,14 +671,16 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 title = re.sub("[ 	\-:,]*" + titleFilter + "[	 ]*", "", title)
 
         if stripShow:
-            seasonInfo = re.sub("[	\n]*", "", article.xpath(".//span[@class='play_videolist-element__title-text']/text()")[0].strip())
+            seasonInfo = article.xpath(".//h2/a/text()")
         else:
-            seasonInfo = re.sub("[	\n]*", "", article.xpath(".//span[@class='play_videolist-element__subtext']/text()")[0].strip())
+            seasonInfo = article.xpath(".//span[@class='play_videolist-element__subtext']/text()")
+        seasonInfo = re.sub("[	\n]*", "", seasonInfo[0].strip())
 
         season = None
         if re.search("[Ss]‰song +[0-9]+", seasonInfo):
             season = int(re.sub(".*S‰song +([0-9]+).*", "\\1", seasonInfo))
-
+            # Remove season from title
+            title = re.sub("[Ss]‰song %i[ 	\-:,]*(.+)" % season, "\\1", title, flags=re.IGNORECASE)
         if isinstance(seasonFilter, int):
             if season != seasonFilter:
                 continue
@@ -673,9 +690,6 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
             episode = int(re.sub(".*[Aa]vsnitt +([0-9]+).*", "\\1", seasonInfo))
 
         try:
-           air_date = article.get("data-broadcasted")
-           if len(air_date) == 0:
-               air_date = article.get("data-published")
            air_date = airDate2date(air_date)
         except Exception as e:
            Log.Exception("Error converting airdate:%s" % e)
@@ -689,17 +703,39 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 duration = duration,
                 season = season,
                 index = episode,
-                thumb = thumb,
+                thumb = thumb.replace('/small/','/medium/'),
                 art = ThumbToArt(thumb),
                 originally_available_at = air_date))
 
     return oc
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def GetShowEpisodeData(article, showName):
+
+    title = unicode(article.xpath(".//img/@alt")[0])
+    if title == showName:
+        title = unicode(article.xpath(".//h2/a/text()")[0])
+    try: 
+        summary = unescapeHTML(article.xpath(".//p[contains(concat(' ',@class,' '),'description-text')]/text()")[0]).strip()
+    except Exception as e:
+        Log("JTDEBUG summary failed:%s" % e)
+        summary = ""
+    availability = article.xpath(".//p[contains(concat(' ',@class,' '),'__meta-info--expire')]/text()")
+    if availability:
+        availability = trim(availability[0])
+    duration = dataLength2millisec(article.xpath(".//time/text()")[0])
+    air_date = article.xpath(".//p[contains(concat(' ',@class,' '),'__meta-info')]/text()")
+    if air_date:
+        air_date = trim(air_date[0])
+    return title, summary, availability, duration, air_date
 
 def IsLive(article):
     text = article.xpath(".//span[@class='play_visually-hidden']/text()")
     return (text and "Live" in text[0])
 
 def dataLength2millisec(dataLength):
+    if not dataLength:
+        return None
     durationList = dataLength.split()
     i = 0
     sec = 0
@@ -1007,9 +1043,9 @@ def sortOnAirData(Objects):
             return Objects
     return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title), reverse=True)
 
-def trimShowName(showName):
-    showName = showName.strip().split()
-    for i in showName:
+def trim(string):
+    string = string.strip().split()
+    for i in string:
         i.strip()
-    showName = " ".join(showName)
-    return showName
+    string = " ".join(string)
+    return string
