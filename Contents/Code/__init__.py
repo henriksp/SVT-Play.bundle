@@ -385,13 +385,11 @@ def HarvestShowData():
             pass
 
 def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, maxEps=500, seasonFilter=None):
-    title2 = unicode(title2)
-    epList = ObjectContainer(title1=title1, title2=title2)
+    title2     = unicode(title2)
+    epList     = ObjectContainer(title1=title1, title2=title2)
     resultList = ObjectContainer(title1=title1, title2=title2)
     seasonList = []
-
-    page = HTML.ElementFromURL(showUrl)
-    articles = page.xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
+    articles   = GetEpisodeArticles(showUrl)
 
     if not isinstance(seasonFilter, int):
         showName = title2
@@ -434,6 +432,9 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
         return resultList
     return epList
 
+def GetEpisodeArticles(url):
+    return HTML.ElementFromURL(url).xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
+
 def CheckSeasons(epList):
     seasonList = []
     newEpList  = ObjectContainer(title1=epList.title1, title2=epList.title2)
@@ -449,10 +450,12 @@ def CheckSeasons(epList):
             seasonList = []
             break
 
-    if len(seasonList) > 1:
+    if len(seasonList) >= 1:
         # Only "hide" episodes in older seasons, i.e. show episodes of latest season.
         seasonList.sort(key=lambda obj: int(obj), reverse=True)
         for ep in filter(lambda e: e.season == seasonList[0], epList.objects):
+            # Remove season from title
+            ep.title = re.sub("Säsong %i[ 	\-:,]*(.+)" % ep.season, "\\1", ep.title, flags=re.IGNORECASE)
             newEpList.add(ep)
         season = seasonList.pop(0)
         seasonList.reverse()
@@ -477,10 +480,7 @@ def GetClipsContainer(clipUrl, title1, title2, sort=False):
 @route(PLUGIN_PREFIX + '/GetVariantContainer', seasonFilter=int)
 def GetVariantContainer(variantUrl, showName, title1, title2, variant, seasonFilter=None, sort=False):
     variantList = ObjectContainer(title1=title1, title2=unicode(title2))
-
-    page = HTML.ElementFromURL(variantUrl)
-    articles = page.xpath("//div[@id='playJs-more-episodes']/div/article[contains(concat(' ',@class,' '),' playJsInfo-Core ')]")
-
+    articles    = GetEpisodeArticles(variantUrl)
     variantList = GetEpisodeObjects(variantList, articles, showName=showName, stripShow=sort, titleFilter=variant, seasonFilter=seasonFilter)
 
     if sort:
@@ -655,9 +655,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         if availability and len(availability) > 0:
             summary = u'TillgÃ¤nglig: ' + unescapeHTML(availability) + ". \n" + summary
 
-        if showName and stripShow and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
-            title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
-        elif not showName:
+        if not showName:
             tmp = title.split(" - ", 1)
             if len(tmp) > 1:
                 show = tmp[0]
@@ -665,7 +663,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                     title = tmp[1]
 
         if titleFilter:
-            if not titleFilter in title:
+            if not (titleFilter in title):
                 continue
             else:
                 title = re.sub("[ 	\-:,]*" + titleFilter + "[	 ]*", "", title)
@@ -679,11 +677,13 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
         season = None
         if re.search("[Ss]äsong +[0-9]+", seasonInfo):
             season = int(re.sub(".*Säsong +([0-9]+).*", "\\1", seasonInfo))
-            # Remove season from title
-            title = re.sub("[Ss]äsong %i[ 	\-:,]*(.+)" % season, "\\1", title, flags=re.IGNORECASE)
+
         if isinstance(seasonFilter, int):
             if season != seasonFilter:
                 continue
+            else:
+                # Remove season from title
+                title = re.sub("Säsong %i[ 	\-:,]*(.+)" % season, "\\1", title, flags=re.IGNORECASE)
 
         episode = None
         if re.search("[Aa]vsnitt +[0-9]+", seasonInfo):
@@ -715,6 +715,10 @@ def GetShowEpisodeData(article, showName):
     title = unicode(article.xpath(".//img/@alt")[0])
     if title == showName:
         title = unicode(article.xpath(".//h2/a/text()")[0])
+
+    if showName and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
+        title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
+
     try: 
         summary = unescapeHTML(article.xpath(".//p[contains(concat(' ',@class,' '),'description-text')]/text()")[0]).strip()
     except Exception as e:
