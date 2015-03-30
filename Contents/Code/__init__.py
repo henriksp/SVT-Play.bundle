@@ -735,7 +735,7 @@ def GetShowEpisodeData(article, showName):
 
 def IsLive(article):
     text = article.xpath(".//span[@class='play_visually-hidden']/text()")
-    return (text and "Live" in text[0])
+    return (text and ("Live" in text[0] or "live" in text[0]))
 
 def dataLength2millisec(dataLength):
     if not dataLength:
