@@ -712,9 +712,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def GetShowEpisodeData(article, showName):
 
-    title = unicode(article.xpath(".//img/@alt")[0])
-    if title == showName:
-        title = unicode(article.xpath(".//h2/a/text()")[0])
+    title = unicode(article.xpath(".//h2/a/text()")[0])
 
     if showName and re.compile(ur'\b%s\b' % showName, re.UNICODE|re.IGNORECASE).search(title):
         title = re.sub(showName+"[ 	\-:,]*(.+)", "\\1", title, flags=re.IGNORECASE)
