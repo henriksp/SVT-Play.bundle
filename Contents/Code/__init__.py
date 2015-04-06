@@ -400,7 +400,7 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     if addClips:
         page = HTML.ElementFromURL(showUrl)
         if len(page.xpath("//div[@id='play_js-tabpanel-more-clips']//article")) > 0:
-            clips = DirectoryObject(key=Callback(GetClipsContainer, clipUrl=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
+            clips = DirectoryObject(key=Callback(GetClipsContainer, url=showUrl, title1=title2, title2=TEXT_CLIPS, sort=sort), title=TEXT_CLIPS)
             resultList.add(clips)
 
     # Partition in seasons
@@ -433,7 +433,12 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
     return epList
 
 def GetEpisodeArticles(url):
-    return HTML.ElementFromURL(url).xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
+    page = HTML.ElementFromURL(url);
+    showUrl = page.xpath("//div[@id='play_js-tabpanel-more-episodes']//div[@class='play_title-page__pagination']/a")
+    if len(showUrl) > 0:
+        page = HTML.ElementFromURL(showUrl[0].get("href"))
+
+    return page.xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
 
 def CheckSeasons(epList):
     seasonList = []
@@ -464,10 +469,15 @@ def CheckSeasons(epList):
         return epList, None, []
 
 @route(PLUGIN_PREFIX + '/GetClipsContainer')
-def GetClipsContainer(clipUrl, title1, title2, sort=False):
+def GetClipsContainer(url, title1, title2, sort=False):
     clipList = ObjectContainer(title1=unicode(title1), title2=unicode(title2))
 
-    page = HTML.ElementFromURL(clipUrl)
+    page = HTML.ElementFromURL(url)
+
+    clipUrl = page.xpath("//div[@id='play_js-tabpanel-more-clips']//div[@class='play_title-page__pagination']/a")
+    if len(clipUrl) > 0:
+        page = HTML.ElementFromURL(clipUrl[0].get("href"))
+
     articles = page.xpath("//div[@id='play_js-tabpanel-more-clips']//article")
 
     clipList = GetEpisodeObjects(clipList, articles, title1, stripShow=sort)
@@ -616,6 +626,8 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
 
     for article in articles:
         if stripShow:
+            if len(article.xpath("./div/div[contains(concat(' ',@class,' '),'countdown play_live-countdown')]")) > 0:
+                continue
             title, summary, availability, duration, air_date = GetShowEpisodeData(article, showName)
         else:
             if IsLive(article):
