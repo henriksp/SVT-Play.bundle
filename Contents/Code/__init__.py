@@ -39,6 +39,8 @@ OA_ICON = 'category_oppet_arkiv.png'
 
 OA_CHUNK_SIZE = 10
 
+LATEST_FIRST = True
+
 CACHE_1H = 60 * 60
 CACHE_1DAY = CACHE_1H * 24
 CACHE_30DAYS = CACHE_1DAY * 30
@@ -139,11 +141,7 @@ def GetSectionEpisodes(index, prevTitle, title):
     else:
         for article in articles:
             url = URL_SITE + article.xpath("./a/@href")[0]
-            thumb = article.xpath(".//img/@src")[0]
-            if re.match("^//", thumb):
-                thumb = "http:" + thumb
-            else:
-                thumb = URL_SITE + thumb
+            thumb = FixLink(article.xpath(".//img/@src")[0])
             title = unicode(article.xpath("./a/@title")[0].strip())
             # Nasty hack for OA in categories...
             if url == URL_SITE + "/%s" % URL_OA_LABEL:
@@ -273,7 +271,7 @@ def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
     else:
         page = HTML.ElementFromURL(url)
         epList = ObjectContainer(title1=TEXT_TITLE, title2=TEXT_SEARCH + " - " + directoryTitle)
-        return GetEpisodeObjects(epList, page.xpath(xpath), None, stripShow=False, addUrlPrefix=(not TEXT_OA in directoryTitle))
+        return GetEpisodeObjects(epList, page.xpath(xpath), None, stripShow=False)
 
 def CreateDirObject(name, key, thumb=R(ICON), summary=None):
     myDir         = DirectoryObject()
@@ -517,14 +515,14 @@ def GetRecommendedEpisodes(prevTitle=None):
         title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
         if summary: summary = unescapeHTML(summary)
-        thumb = article.xpath(".//img/@data-imagename")[0].replace("_imax", "")
+        thumb = FixLink(article.xpath(".//img/@data-imagename")[0].replace("_imax", ""))
         tmp = title.split(" - ", 1)
         if len(tmp) > 1:
             show = tmp[0]
 
         if not "http" in url:
             oc.add(EpisodeObject(
-                    url = URL_SITE + url,
+                    url = FixLink(url),
                     show = show,
                     title = title,
                     summary = summary,
@@ -569,7 +567,7 @@ def GetChannels(prevTitle):
         duration = None
 
         if thumb == None:
-            thumb = URL_SITE + thumbBase % channel
+            thumb = thumbBase % channel
 
         title = show.xpath(".//h1/text()")[0]
 
@@ -604,11 +602,11 @@ def GetChannels(prevTitle):
             channel = channel.capitalize()
 
         show = EpisodeObject(
-                url = url,
+                url = FixLink(url),
                 title = channel + " - " + title + timestring,
                 summary = desc,
                 duration = duration,
-                thumb = thumb.replace('/small/','/medium/')
+                thumb = FixLink(thumb.replace('/small/','/medium/'))
                 )
         channelsList.add(show)
     return channelsList
@@ -622,7 +620,7 @@ def GetLiveShowTitle(a):
 
 #------------ EPISODE FUNCTIONS ---------------------
 # Excpects a list of arcticle tags
-def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True, titleFilter=None, seasonFilter=None):
+def GetEpisodeObjects(oc, articles, showName, stripShow=False, titleFilter=None, seasonFilter=None):
 
     for article in articles:
         if stripShow:
@@ -654,10 +652,8 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, addUrlPrefix=True
                 air_date = article.get("data-published")
 
         # Common part
-        url = article.xpath(".//a/@href")[0]
-        if addUrlPrefix:
-            url = URL_SITE + url
-        thumb = article.xpath(".//img/@src")[0].strip()
+        url = FixLink(article.xpath(".//a/@href")[0])
+        thumb = FixLink(article.xpath(".//img/@src")[0].strip())
         try: 
             showName = showName.decode('utf-8')
         except: 
@@ -852,7 +848,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
                 seasons_len = seasons_len - 1
 
         if len(indexed_episodes) > OA_CHUNK_SIZE:
-            indexed_episodes.sort(key=lambda obj: int(obj[0]),reverse=True)
+            indexed_episodes.sort(key=lambda obj: int(obj[0]),reverse=LATEST_FIRST)
             chunk_index = 0
             while chunk_index < len(indexed_episodes):
                 chunk_title = GetOAChunkTitle(indexed_episodes, chunk_index)
@@ -909,6 +905,7 @@ def GetOAChunkEpisodes(urlList=[], chunk_index=0, prevTitle="", showName=""):
 
 def GetOAEpisodeObject(url, stripTitlePrefix=False):
     try:
+        url = FixLink(url)
         page= HTML.ElementFromURL(url)
 
         show = None
@@ -933,7 +930,7 @@ def GetOAEpisodeObject(url, stripTitlePrefix=False):
 
         summary = page.xpath('//meta[@property="og:description"]/@content')[0].replace('&amp;', '&')
         summary = String.DecodeHTMLEntities(summary)
-        thumb = page.xpath('//meta[@property="og:image"]/@content')[0].replace('/small/', '/large/')
+        thumb = page.xpath('//meta[@property="og:image"]/@content')[0]
 
         try:
             air_date = page.xpath("//span[@class='svt-video-meta']//time/@datetime")[0].split('T')[0]
@@ -951,8 +948,8 @@ def GetOAEpisodeObject(url, stripTitlePrefix=False):
                 show = show,
                 title = title,
                 summary = summary,
-                art = thumb,
-                thumb = thumb,
+                art = ThumbToArt(thumb),
+                thumb = FixLink(thumb.replace('/small/','/medium/')),
                 duration = duration,
                 season = season,
                 index = episode,
@@ -1043,19 +1040,32 @@ def unescapeHTML(text):
     return re.sub("&#?\w+;", fixup, text)
 
 def ThumbToArt(thumb):
-    return thumb.replace('/small/', '/extralarge/')
+    return FixLink(thumb.replace('/small/', '/extralarge/'))
+
+def FixLink(link):
+    if link.startswith("//"):
+        return "http:" + link
+    elif link.startswith("http"):
+        return link
+    elif link.startswith("/"):
+        return URL_SITE + link
+    else:
+        return URL_SITE + "/" + link
 
 def sortOnIndex(Objects):
     for obj in Objects.objects:
         if obj.index == None or obj.season == None:
             return sortOnAirData(Objects)
-    return Objects.objects.sort(key=lambda obj: (obj.season, obj.index), reverse=True)
+    return Objects.objects.sort(key=lambda obj: (obj.season, obj.index), reverse=LATEST_FIRST)
 
 def sortOnAirData(Objects):
     for obj in Objects.objects:
         if obj.originally_available_at == None:
-            return Objects
-    return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title), reverse=True)
+            if LATEST_FIRST:
+                return Objects
+            else:
+                return Objects.objects.reverse()
+    return Objects.objects.sort(key=lambda obj: (obj.originally_available_at,obj.title), reverse=LATEST_FIRST)
 
 def trim(string):
     string = string.strip().split()
