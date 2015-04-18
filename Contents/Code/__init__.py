@@ -46,7 +46,7 @@ CACHE_1DAY = CACHE_1H * 24
 CACHE_30DAYS = CACHE_1DAY * 30
 
 SHOW_SUM = "showsum"
-DICT_V = 1
+DICT_V = 1.1
 
 sec2thumb = {u"Kategorier": "main_kategori.png", \
              u"Kanaler" : "main_kanaler.png", \
@@ -67,13 +67,13 @@ def Start():
 
     if not "version" in Dict:
         Log("No version number in dict, resetting")
-        Dict.Reset()
+        Dict.Reset() # Doesn't seem to work unfortunately
         Dict["version"] = DICT_V
         Dict.Save()
 
     if Dict["version"] != DICT_V:
         Log("Wrong version number in dict, resetting")
-        Dict.Reset()
+        Dict.Reset() # Doesn't seem to work unfortunately
         Dict["version"] = DICT_V
         Dict.Save()
 
@@ -140,7 +140,7 @@ def GetSectionEpisodes(index, prevTitle, title):
         oc = GetEpisodeObjects(oc, articles, showName=None)
     else:
         for article in articles:
-            url = URL_SITE + article.xpath("./a/@href")[0]
+            url = FixLink(article.xpath("./a/@href")[0])
             thumb = FixLink(article.xpath(".//img/@src")[0])
             title = unicode(article.xpath("./a/@title")[0].strip())
             # Nasty hack for OA in categories...
@@ -161,7 +161,7 @@ def GetSectionShows(url, prevTitle, title):
     if len(articles) == 0:
         articles = page.xpath("//div[@id='playJs-title-pages']//article")
     for article in articles:
-        showUrl = URL_SITE + article.xpath("./a/@href")[0]
+        showUrl = FixLink(article.xpath("./a/@href")[0])
         name = article.get("data-title")
         oc.add(CreateShowDirObject(name, key=Callback(GetShowEpisodes, prevTitle=prevTitle, showUrl=showUrl, showName=name)))
 
@@ -243,7 +243,7 @@ def ReturnSearchShows(url, xpath, result, showOc=[]):
 
     for article in showPage.xpath(xpath):
         name = article.get("data-title")
-        showUrl = URL_SITE + article.xpath("./a/@href")[0]
+        showUrl = FixLink(article.xpath("./a/@href")[0])
         key = Callback(GetShowEpisodes, prevTitle=TEXT_TITLE, showUrl=showUrl, showName=name)
         showOc.add(CreateShowDirObject(name, key))
 
@@ -310,7 +310,7 @@ def CreateShowList(programLinks, parentTitle=None):
 
     for programLink in programLinks:
         try:
-            url = URL_SITE + programLink.xpath("./a/@href")[0]
+            url = FixLink(programLink.xpath("./a/@href")[0])
             name = programLink.xpath("./a/text()")[0].strip()
             key = Callback(GetShowEpisodes, prevTitle=parentTitle, showUrl=url, showName=name)
             showsList.append(CreateShowDirObject(name, key))
@@ -331,7 +331,7 @@ def GetShowImgUrl(showName):
     d = Dict[SHOW_SUM]
     showName = unicode(showName)
     if showName in d:
-        return d[showName][3].replace('/small/', '/medium/')
+        return FixLink(d[showName][3].replace('/small/', '/medium/'))
     return None
 
 def HarvestShowData():
@@ -341,7 +341,7 @@ def HarvestShowData():
 
     for programLink in programLinks:
         try:
-            showURL = URL_SITE + programLink.xpath("./a/@href")[0]
+            showURL = FixLink(programLink.xpath("./a/@href")[0])
             showName = unicode(programLink.xpath("./a/text()")[0].strip())
 
             d = Dict[SHOW_SUM]
@@ -366,7 +366,7 @@ def HarvestShowData():
                 for show in json_obj:
                     if showName == show['title']:
                         # I need to unicode it to save it in the Dict
-                        imgUrl = unicode(show['thumbnail'])
+                        imgUrl = FixLink(unicode(show['thumbnail']))
             except Exception as e:
                 Log("Error looking for image for show %s %s" % (showName, e))
                 pass
@@ -434,7 +434,7 @@ def GetEpisodeArticles(url):
     page = HTML.ElementFromURL(url);
     showUrl = page.xpath("//div[@id='play_js-tabpanel-more-episodes']//div[@class='play_title-page__pagination']/a")
     if len(showUrl) > 0:
-        page = HTML.ElementFromURL(showUrl[0].get("href"))
+        page = HTML.ElementFromURL(FixLink(showUrl[0].get("href")))
 
     return page.xpath("//div[@id='play_js-tabpanel-more-episodes']//article")
 
@@ -474,7 +474,7 @@ def GetClipsContainer(url, title1, title2, sort=False):
 
     clipUrl = page.xpath("//div[@id='play_js-tabpanel-more-clips']//div[@class='play_title-page__pagination']/a")
     if len(clipUrl) > 0:
-        page = HTML.ElementFromURL(clipUrl[0].get("href"))
+        page = HTML.ElementFromURL(FixLink(clipUrl[0].get("href")))
 
     articles = page.xpath("//div[@id='play_js-tabpanel-more-clips']//article")
 
@@ -779,7 +779,7 @@ def CreateOAShowList(programLinks, parentTitle=None):
     showsList = []
     for l in programLinks:
         try:
-            showUrl = l.get("href")
+            showUrl = FixLink(l.get("href"))
             # Log("ÖA: showUrl: " + showUrl)
             showName = (l.xpath("text()")[0]).strip()
             # Log("ÖA: showName: " + showName)
@@ -807,6 +807,7 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
         pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
         epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
         for url in epUrls:
+            url = FixLink(url)
             if "-sasong-" in url:
                 index = re.sub(".*-sasong-([0-9]+).*", "\\1", url)
                 if not index in seasons:
