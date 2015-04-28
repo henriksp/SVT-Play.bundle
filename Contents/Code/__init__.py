@@ -46,7 +46,7 @@ CACHE_1DAY = CACHE_1H * 24
 CACHE_30DAYS = CACHE_1DAY * 30
 
 SHOW_SUM = "showsum"
-DICT_V = 1.1
+DICT_V = 1.2
 
 sec2thumb = {u"Kategorier": "main_kategori.png", \
              u"Kanaler" : "main_kanaler.png", \
@@ -67,13 +67,15 @@ def Start():
 
     if not "version" in Dict:
         Log("No version number in dict, resetting")
-        Dict.Reset() # Doesn't seem to work unfortunately
+        Dict.Reset()
+        Dict[SHOW_SUM] = {} # Dict.Reset() doesn't seem to work
         Dict["version"] = DICT_V
         Dict.Save()
 
     if Dict["version"] != DICT_V:
         Log("Wrong version number in dict, resetting")
-        Dict.Reset() # Doesn't seem to work unfortunately
+        Dict.Reset()
+        Dict[SHOW_SUM] = {} # Dict.Reset() doesn't seem to work
         Dict["version"] = DICT_V
         Dict.Save()
 
@@ -114,6 +116,10 @@ def AddSections(menu):
                 title = section.xpath(".//h1[contains(concat(' ',@class,' '),' play_videolist-section-header__header')]/a/text()")
             if (len(title) == 0):
                 continue;
+            i = 0
+            while i < len(title):
+                title[i] = title[i].strip()
+                i = i+1
             title = unicode('/'.join(title))
 
             img = ICON
@@ -275,7 +281,7 @@ def ReturnSearchHits(url, xpath, result, directoryTitle, createDirectory=False):
 
 def CreateDirObject(name, key, thumb=R(ICON), summary=None):
     myDir         = DirectoryObject()
-    myDir.title   = name
+    myDir.title   = name.strip()
     myDir.key     = key
     myDir.summary = summary
     myDir.thumb   = thumb
@@ -283,6 +289,7 @@ def CreateDirObject(name, key, thumb=R(ICON), summary=None):
     return myDir
 
 def CreateShowDirObject(name, key):
+    name = name.strip()
     return CreateDirObject(name, key, GetShowImgUrl(name), GetShowSummary(name))
 
 def SearchShowTitle (query):
@@ -524,7 +531,7 @@ def GetRecommendedEpisodes(prevTitle=None):
             oc.add(EpisodeObject(
                     url = FixLink(url),
                     show = show,
-                    title = title,
+                    title = title.strip(),
                     summary = summary,
                     thumb = thumb.replace('/small/','/medium/'),
                     art = ThumbToArt(thumb)))
@@ -706,7 +713,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, titleFilter=None,
         oc.add(EpisodeObject(
                 url = url,
                 show = show,
-                title = title,
+                title = title.strip(),
                 summary = summary,
                 duration = duration,
                 season = season,
@@ -779,7 +786,7 @@ def CreateOAShowList(programLinks, parentTitle=None):
     showsList = []
     for l in programLinks:
         try:
-            showUrl = FixLink(l.get("href"))
+            showUrl = FixLink(l.get("href"), URL_OA_SITE)
             # Log("ÖA: showUrl: " + showUrl)
             showName = (l.xpath("text()")[0]).strip()
             # Log("ÖA: showName: " + showName)
@@ -805,9 +812,11 @@ def GetOAShowEpisodes(prevTitle=None, showUrl=None, showName=""):
     indexed_episodes = []
     while morePages:
         pageElement = HTML.ElementFromURL(showUrl + (suffix % i))
-        epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']//h3/a/@href")
+        epUrls = pageElement.xpath("//div[@class='svt-display-table-xs']/.//a/@href")
         for url in epUrls:
-            url = FixLink(url)
+            if url.strip() == "#":
+                continue
+            url = FixLink(url, URL_OA_SITE)
             if "-sasong-" in url:
                 index = re.sub(".*-sasong-([0-9]+).*", "\\1", url)
                 if not index in seasons:
@@ -906,7 +915,7 @@ def GetOAChunkEpisodes(urlList=[], chunk_index=0, prevTitle="", showName=""):
 
 def GetOAEpisodeObject(url, stripTitlePrefix=False):
     try:
-        url = FixLink(url)
+        url = FixLink(url, URL_OA_SITE)
         page= HTML.ElementFromURL(url)
 
         show = None
@@ -947,10 +956,10 @@ def GetOAEpisodeObject(url, stripTitlePrefix=False):
         return EpisodeObject(
                 url = url,
                 show = show,
-                title = title,
+                title = title.strip(),
                 summary = summary,
                 art = ThumbToArt(thumb),
-                thumb = FixLink(thumb.replace('/small/','/medium/')),
+                thumb = FixLink(thumb.replace('/small/','/medium/'), URL_OA_SITE),
                 duration = duration,
                 season = season,
                 index = episode,
@@ -1043,15 +1052,15 @@ def unescapeHTML(text):
 def ThumbToArt(thumb):
     return FixLink(thumb.replace('/small/', '/extralarge/'))
 
-def FixLink(link):
+def FixLink(link, prefix=URL_SITE):
     if link.startswith("//"):
         return "http:" + link
     elif link.startswith("http"):
         return link
     elif link.startswith("/"):
-        return URL_SITE + link
+        return prefix + link
     else:
-        return URL_SITE + "/" + link
+        return prefix + "/" + link
 
 def sortOnIndex(Objects):
     for obj in Objects.objects:
