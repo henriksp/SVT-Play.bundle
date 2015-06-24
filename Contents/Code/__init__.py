@@ -161,6 +161,15 @@ def GetSectionEpisodes(index, prevTitle, title):
 def GetSectionShows(url, prevTitle, title):
     oc = ObjectContainer(title1=prevTitle, title2=unicode(title))
     page = HTML.ElementFromURL(url)
+
+    # If start page isn't alphabetical - we need to fetch that page to get all shows
+    tabs = page.xpath("//li[@class='play_category__tab-list-item']/a")
+    if tabs[0].get('aria-controls') != 'playJs-alphabetic-list':
+        for tab in tabs[1:]:
+            if tab.get('aria-controls') == 'playJs-alphabetic-list':
+                page = HTML.ElementFromURL(FixLink(tab.get('href')))
+                break
+        
     articles = page.xpath("//div[@id='playJs-alphabetic-list']//article")
     # For 'nyheter, there is no good common limiter of the articles.
     # try another xpath
@@ -776,7 +785,7 @@ def dataLength2millisec(dataLength):
 def GetOAIndex(prevTitle, titleFilter=None):
     showsList = ObjectContainer(title1 = prevTitle, title2=TEXT_OA)
     pageElement = HTML.ElementFromURL(URL_OA_INDEX)
-    programLinks = pageElement.xpath("//a[@class='svt-text-default']")
+    programLinks = pageElement.xpath("//a[@class='svtoa-anchor-list-link']")
     for s in CreateOAShowList(programLinks, TEXT_OA):
         if FilterTitle(s.title, titleFilter):
             showsList.add(s)
