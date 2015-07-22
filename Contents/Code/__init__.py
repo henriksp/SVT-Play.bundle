@@ -177,6 +177,10 @@ def GetSectionShows(url, prevTitle, title):
         articles = page.xpath("//div[@id='playJs-title-pages']//article")
     for article in articles:
         showUrl = FixLink(article.xpath("./a/@href")[0])
+        if re.search("/(klipp|video)/", showUrl):
+            # Episode amongst shows - skip it.
+            continue
+                         
         name = article.get("data-title")
         oc.add(CreateShowDirObject(name, key=Callback(GetShowEpisodes, prevTitle=prevTitle, showUrl=showUrl, showName=name)))
 
