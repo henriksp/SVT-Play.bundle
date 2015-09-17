@@ -431,7 +431,7 @@ def MakeShowContainer(showUrl, title1="", title2="", sort=False, addClips=True, 
         sortOnIndex(epList)
 
     # Filter out variants
-    variants = ["textat", "syntolkat", u'teckenspråkstolkat']
+    variants = ["textat", "syntolkat", u'teckenspråkstolkat', u'originalspråk']
     for keyword in variants:
         for ep in epList.objects:
             if keyword in ep.title:
@@ -694,7 +694,7 @@ def GetEpisodeObjects(oc, articles, showName, stripShow=False, titleFilter=None,
             if not (titleFilter in title):
                 continue
             else:
-                title = re.sub("[ 	\-:,]*" + titleFilter + "[	 ]*", "", title)
+                title = re.sub('[ 	\-:,]*' + unicode(titleFilter) + '[	 ]*', "", title, flags=re.UNICODE)
 
         if stripShow:
             seasonInfo = article.xpath(".//h2/a/text()")
