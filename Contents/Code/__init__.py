@@ -530,7 +530,7 @@ def GetRecommendedEpisodes(prevTitle=None):
     page = HTML.ElementFromURL(URL_SITE)
     articles = page.xpath("//section[@id='recommended-videos']//article")
     for article in articles:
-        url = article.xpath("./a/@href")[0]
+        url = FixLink(article.xpath("./a/@href")[0])
         show = None
         title = GetFirstNonEmptyString(article.xpath(".//span[@class='play_carousel-caption__title-inner']/text()"))
         summary = GetFirstNonEmptyString(article.xpath("./a/span/span[2]/text()"))
@@ -540,9 +540,9 @@ def GetRecommendedEpisodes(prevTitle=None):
         if len(tmp) > 1:
             show = tmp[0]
 
-        if not "http" in url:
+        if re.search("/(klipp|video)/", url):
             oc.add(EpisodeObject(
-                    url = FixLink(url),
+                    url = url,
                     show = show,
                     title = title.strip(),
                     summary = summary,
