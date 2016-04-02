@@ -192,7 +192,7 @@ def Categories(title):
     xml_data = XML.ObjectFromURL(CATEGORIES_URL)
     
     for item in xml_data.xpath("//items/sixteenByNinePoster"):
-        title = unicode(item.xpath(".//title/text()")[0])
+        title = unicode(item.xpath("./@accessibilityLabel")[0])
         url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
         
         try: thumb = item.xpath(".//image/text()")[0]
