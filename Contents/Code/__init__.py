@@ -5,24 +5,7 @@ ICON  = 'icon-default.png'
 ART = 'art-default.jpg'
 
 BASE_URL = 'http://www.svtplay.se'
-START_URL = BASE_URL + '/xml/start.xml'
-ALL_PROGRAMS_URL = BASE_URL + '/xml/programmes.xml'
-CATEGORIES_URL = BASE_URL + '/xml/categories.xml'
-VIDEO_URL_TEMPLATE = BASE_URL + '/video/'
-URL_SEARCH = BASE_URL + '/xml/search-results.xml?q=%s'
-NEWS_URLS = {'Aktuellt': BASE_URL + '/xml/title/29529.xml', 'Rapport': BASE_URL + '/xml/title/1109035.xml'}
-
-CHANNELS = {'svt1': 'SVT1', 'svt2': 'SVT2', 'barnkanalen': 'Barnkanalen', 'svt24': 'SVT24', 'kunskapskanalen': 'Kunskapskanalen'}
-
-RE_URL = Regex("'(.+)'")
-RE_SEASON = Regex(unicode("Säsong ([0-9]+)"))
-RE_EPISODE = Regex("Avsnitt ([0-9]+)")
-RE_DURATION_MINS = Regex("([0-9]+) minuter")
-RE_DURATION_HOURS = Regex("([0-9]+) timm")
-RE_DATE_INFO = Regex(unicode("Sändes (.+)"))
-RE_DATE = Regex("([0-9]+) (.+) *([0-9]*)")
-
-MONTHS = {'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'maj': '05', 'jun': '06', 'jul': '07', 'aug': '08', 'sep': '09', 'okt': '10', 'nov': '11', 'dec': '12'}
+API_URL = BASE_URL + '/api/'
 
 ####################################################################################################
 def Start():
@@ -39,24 +22,27 @@ def Start():
 def MainMenu():
 
     oc = ObjectContainer()
-    
-    xml_data = XML.ObjectFromURL(START_URL)
-    
-    for item in xml_data.xpath("//collectionDivider"):
-        title = item.xpath("./title/text()")[0]
-        id = item.xpath("./following-sibling::shelf/@id")[0]
-    
-        oc.add(
-            DirectoryObject(
-                key = Callback(Collections, title = title, id = id),
-                title = title
-            )
-        )
 
     title = 'Senaste Nyhetsprogram'
     oc.add(
         DirectoryObject(
-            key = Callback(LatestNews, title = title),
+            key = Callback(Videos, title = title, suffix = 'cluster_latest;cluster=nyheter'),
+            title = title
+        )
+    )
+
+    title = 'Senaste Program'
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'latest'),
+            title = title
+        )
+    )
+    
+    title = 'Rekommenderat'
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'recommended'),
             title = title
         )
     )
@@ -80,11 +66,11 @@ def MainMenu():
     title = 'Alla Program'
     oc.add(
         DirectoryObject(
-            key = Callback(Programs, title = title, url = ALL_PROGRAMS_URL),
+            key = Callback(Programs, title = title, suffix = 'all_titles_and_singles'),
             title = title
         )
     )
-
+    
     title = unicode("Sök")
     oc.add(
         InputDirectoryObject(
@@ -104,78 +90,81 @@ def Search(query):
 
     oc = ObjectContainer(title2='Resultat')
     
-    search_url = URL_SEARCH % unicode(String.Quote(query))
-    xml_data = XML.ObjectFromURL(search_url)
+    json_data = JSON.ObjectFromURL(API_URL + 'search_page;q=%s' % unicode(String.Quote(query)))
     
-    for item in xml_data.xpath("//twoLineEnhancedMenuItem"):
-        title = unicode(item.xpath(".//label/text()")[0])
-        url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
+    for item in json_data['titles']:
+        do = DirectoryObjectFromItem(item)
+        
+        if do:
+            oc.add(do)
             
-        try: thumb = item.xpath(".//image/text()")[0]
-        except: thumb = None
-
-        if 'xml/category' in url:
-            oc.add(
-                DirectoryObject(
-                    key = Callback(Category, title = title, url = url, thumb = thumb),
-                    title = title,
-                    thumb = thumb
-                )
-            )
+    for item in json_data['episodes']:
+        episode = EpisodeObjectFromItem(item)
         
-        elif 'xml/title' in url:
-            oc.add(
-                DirectoryObject(
-                    key = Callback(Videos, title = title, url = url, thumb = thumb),
-                    title = title,
-                    thumb = thumb
-                )
-            )
+        if episode:
+            oc.add(episode)
     
-    for item in xml_data.xpath("//comboMenuItem"):
-        url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
-        
-        if not 'xml/video' in url:
-            continue
-
-        oc.add(
-            EpisodeObjectFromItem(item = item, show = unicode(item.xpath(".//label/text()")[0]))
-        )
-
     if len(oc) < 1:
-        return ObjectContainer(header=unicode("Resultat"), message=unicode("Kunde inte hitta något för: ") + unicode(query))
+        return ObjectContainer(header=unicode('Resultat'), message=unicode('Kunde inte hitta något för: ') + unicode(query))
 
     return oc
-        
+
 ####################################################################################################
-@route(PREFIX + '/latestnews')
-def LatestNews(title):
+@route(PREFIX + '/videos')
+def Videos(title, suffix):
 
     oc = ObjectContainer(title2=unicode(title))
 
-    for show in NEWS_URLS:
-        oc.add(
-            DirectoryObject(
-                key = Callback(Videos, title = show, url = NEWS_URLS[show]),
-                title = show
-            )
-        )
+    json_data = JSON.ObjectFromURL(API_URL + suffix)
     
-    return oc
+    if 'data' in json_data:
+        json_data = json_data['data']
+    elif 'relatedVideos' in json_data:
+        json_data = json_data['relatedVideos']['episodes']
+    
+    for item in json_data:
+        episode = EpisodeObjectFromItem(item)
+        
+        if episode:
+            oc.add(episode)
+
+    seasons = {}
+    for obj in oc.objects:
+        if obj.season not in seasons:
+            seasons[obj.season] = []
+            
+        seasons[obj.season].append(obj)
+    
+    sorted_oc = ObjectContainer(title2=unicode(title))
+    for season in seasons:
+        for episode in seasons[season]:
+            sorted_oc.add(episode)
+
+    return sorted_oc
 
 ####################################################################################################
 @route(PREFIX + '/channels')
 def Channels(title):
 
     oc = ObjectContainer(title2=unicode(title))
+
+    json_data = JSON.ObjectFromURL(API_URL + 'channel_page')
     
-    # Just hardcode all channels
-    for channel in CHANNELS:
+    for item in json_data['channels']:
+        try: 
+            title = unicode(item['name'])
+            url = BASE_URL + '/kanaler/%s' % item['title']
+        except: 
+            continue
+            
+        try: thumb = 'http://www.svtplay.se/public/images/channels/posters/%s.png' % item['title'] 
+        except: thumb = None
+        
         oc.add(
             VideoClipObject(
-                url = BASE_URL + '/kanaler/%s' % channel,
-                title = CHANNELS[channel],
-                thumb = 'http://www.svtplay.se/public/images/channels/posters/%s.png' % channel
+                url = url,
+                title = title,
+                thumb = thumb
             )
         )
     
@@ -189,235 +178,106 @@ def Categories(title):
 
     oc = ObjectContainer(title2=unicode(title))
     
-    xml_data = XML.ObjectFromURL(CATEGORIES_URL)
+    json_data = JSON.ObjectFromURL(API_URL + 'active_clusters')
     
-    for item in xml_data.xpath("//items/sixteenByNinePoster"):
-        title = unicode(item.xpath("./@accessibilityLabel")[0])
-        url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
+    for item in json_data:
+        try: 
+            title = unicode(item['name'])
+            slug = item['slug']
+        except:
+            continue
         
-        try: thumb = item.xpath(".//image/text()")[0]
-        except: thumb = None
+        summary = None
+        try: summary = item['description']
+        except: pass
         
-        oc.add(
-            DirectoryObject(
-                key = Callback(Category, title = title, url = url, thumb = thumb),
-                title = title,
-                thumb = thumb
-            )
-        )
-    
-    return oc
-
-####################################################################################################
-@route(PREFIX + '/category')
-def Category(title, url, thumb):
-
-    oc = ObjectContainer(title2=unicode(title))
-    
-    xml_data = XML.ObjectFromURL(url)
-    
-    for item in xml_data.xpath("//items/oneLineMenuItem"):
-        title = unicode(item.xpath(".//label/text()")[0])
-        url = item.xpath(".//link/text()")[0]
+        thumb = None
+        try: 
+            if 'thumbnailImage' in item and item['thumbnailImage'] is not None:
+                thumb = GetImage(item['thumbnailImage'])
+            else:
+                thumb = GetImage(item['backgroundImage'])
+        except: pass
+        
+        art = None
+        try: art = GetImage(item['backgroundImage'])
+        except: pass
         
         oc.add(
             DirectoryObject(
-                key = Callback(Programs, title = title, url = url),
+                key = Callback(Programs, title = title, suffix = 'cluster_titles_and_episodes/?cluster=' + slug),
                 title = title,
-                thumb = thumb
+                summary = summary,
+                thumb = thumb,
+                art = art
             )
         )
-    
+        
+        
     return oc
 
 ####################################################################################################
 @route(PREFIX + '/programs')
-def Programs(title, url):
+def Programs(title, suffix):
 
     oc = ObjectContainer(title2=unicode(title))
     
-    xml_data = XML.ObjectFromURL(url)
+    json_data = JSON.ObjectFromURL(API_URL + suffix)
     
-    programs = []
-    for item in xml_data.xpath("//items/sixteenByNinePoster"):
-        title = unicode(item.xpath(".//title/text()")[0])
-        url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
+    for item in json_data:
+        do = DirectoryObjectFromItem(item)
         
-        try: thumb = item.xpath(".//image/text()")[0]
-        except: thumb = None
-        
-        if not title in programs:
-            programs.append(title)
-        else:
-            continue
-        
-        oc.add(
-            DirectoryObject(
-                key = Callback(Videos, title = title, url = url, thumb = thumb),
-                title = title,
-                thumb = thumb
-            )
-        )
+        if do:
+            oc.add(do)
+    
+    return oc
     
     oc.objects.sort(key = lambda obj: obj.title)
     
     return oc
 
 ####################################################################################################
-@route(PREFIX + '/collections')
-def Collections(title, id):
+def EpisodeObjectFromItem(item):
 
-    oc = ObjectContainer(title2=unicode(title))
-    
-    xml_data = XML.ObjectFromURL(START_URL)
-    
-    for item in xml_data.xpath("//shelf[@id='" + id + "']//items//sixteenByNinePoster"):
-        title = unicode(item.xpath(".//title/text()")[0])
+    try:
+        title = unicode(item['title'])
+        url = BASE_URL + item['contentUrl'] if 'contentUrl' in item else BASE_URL + item['url']
         
-        try: title = title + ': ' + unicode(item.xpath(".//subtitle/text()")[0])
-        except: pass
-        
-        url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
-        
-        try: thumb = item.xpath(".//image/text()")[0]
-        except: thumb = None
-
-        if 'xml/video' in url:
-            id = url.replace("http://www.svtplay.se/xml/video/", "").replace(".xml", "").strip()
-            video_url = VIDEO_URL_TEMPLATE + id
-        
-            oc.add(
-                VideoClipObject(
-                    url = video_url,
-                    title = title,
-                    thumb = thumb
-                )
-            )
-
-        else:
-            oc.add(
-                DirectoryObject(
-                    key = Callback(Videos, title = title, url = url, thumb = thumb),
-                    title = title,
-                    thumb = thumb
-                )
-            )
-    
-    return oc
-    
-####################################################################################################
-@route(PREFIX + '/videos')
-def Videos(title, url, thumb=None):
-
-    oc = ObjectContainer(title2=unicode(title))
-    xml_data = XML.ObjectFromURL(url)
-    
-    show = None
-    try: show = xml_data.xpath("//title/text()")[0]
-    except: pass
-    
-    episodes_url = xml_data.xpath("//navigationItem[@id='episodes']/url/text()")[0]
-    episodes_xml_data = XML.ObjectFromURL(episodes_url)
-    
-    for item in episodes_xml_data.xpath("//navigationItem[@id='episodes']//items//twoLineEnhancedMenuItem"):
-        oc.add(
-            EpisodeObjectFromItem(item, show)
-        )
-    
-    
-    return oc
-
-####################################################################################################
-def EpisodeObjectFromItem(item, show=None):
-
-    title = unicode(item.xpath(".//title/text()")[0])
-    xml_url = RE_URL.search(item.xpath("./@onSelect")[0]).groups()[0]
-    
-    if "," in xml_url:
-        id = xml_url.split(",")[-1].replace("'", "").strip()
-    else:
-        id = xml_url.split("/")[-1].replace(".xml", "").strip()
-    
-    url = VIDEO_URL_TEMPLATE + id
-    
-    try: thumb = item.xpath(".//image/text()")[0]
-    except: thumb = None
-    
-    try: 
-        summary = unicode(item.xpath(".//summary/text()")[0])
+        if not '/video' in url:
+            return None
     except:
-        try: 
-            summary = ''
-            for label in item.xpath(".//label/text()"):
-                summary = summary + label + '\n'
-        except:
-            summary = None
+        return None
     
-    season = None
-    index = None
-    duration = None
-    originally_available_at = None
-     
-    for label in item.xpath(".//label/text()"):
-        if not season:
-            try: season = int(RE_SEASON.search(label).groups()[0])
-            except: pass
+    thumb = None
+    if 'thumbnail' in item:
+        thumb = GetImage(item['thumbnail'])
         
-        if not index:
-            try: index = int(RE_EPISODE.search(label).groups()[0])
-            except: pass
+    if not thumb:
+        if 'poster' in item:
+            thumb = GetImage(item['poster'])
             
-        if not duration:
-            duration_mins = 0
-            duration_hours = 0
-            
-            try: 
-                duration_mins = int(RE_DURATION_MINS.search(label).groups()[0])
-            except: 
-                pass
-                
-            try: 
-                duration_hours = int(RE_DURATION_HOURS.search(label).groups()[0])
-            except: 
-                pass
-                
-            if duration_mins > 0 or duration_hours > 0:
-                duration = (duration_mins * 60 + duration_hours * 3600) * 1000
-            
-        if not originally_available_at:
-            date_info = RE_DATE_INFO.search(label)
+    if not thumb:
+        if 'image' in item:
+            thumb = GetImage(item['image'])
+    
+    try: summary = item['description']
+    except: summary = None
 
-            if not date_info:
-                continue
-                
-            date_info = date_info.groups()[0]
-            
-            if ('idag' in date_info) or ('ikväll' in date_info):
-                originally_available_at = Datetime.Now()
-            
-            elif 'igår' in date_info:
-                originally_available_at = Datetime.Now() - Datetime.Delta(days=1)
-            
-            else:
-                data = RE_DATE.search(label)
-                
-                if not data:
-                    continue
-
-                data = data.groups()
-                day = data[0]
-                month = data[1].split(" ")[0]
-                
-                if int(day) < 10:
-                    day = '0%s' % day
-                
-                try:
-                    year = data[1].split(" ")[1]
-                except:
-                    year = str(Datetime.Now()).split("-")[0]
-                   
-                originally_available_at = Datetime.ParseDate('%s-%s-%s' % (year, MONTHS[month], day)).date()
-
+    try: show = item['prefix'] if 'prefix' in item else unicode(item['programTitle'])
+    except: show = None
+    
+    try: season = int(item['season'])
+    except: season = None
+    
+    try: index = int(item['episodeNumber'])
+    except: index = None
+    
+    try: duration = int(item['materialLength']) * 1000
+    except: duration = None
+    
+    try: originally_available_at = Datetime.ParseDate(item['broadcastDate'].split('T')[0]).date()
+    except: originally_available_at = None
+  
     return EpisodeObject(
         url = url,
         title = title,
@@ -430,3 +290,51 @@ def EpisodeObjectFromItem(item, show=None):
         originally_available_at = originally_available_at,
         art = thumb
     )
+
+####################################################################################################
+def DirectoryObjectFromItem(item):
+
+    try:
+        title = unicode(item['programTitle']) if 'programTitle' in item else unicode(item['title'])
+        url = item['contentUrl'] if 'contentUrl' in item else item['url']
+        
+        if '/video' in url:
+            return None
+
+    except: return None
+    
+    summary = None
+    try: summary = item['description']
+    except: pass
+    
+    thumb = None
+    if 'thumbnail' in item:
+        thumb = GetImage(item['thumbnail'])
+        
+    if not thumb:
+        if 'poster' in item:
+            thumb = GetImage(item['poster'])
+            
+    if not thumb:
+        if 'image' in item:
+            thumb = GetImage(item['image'])
+    
+    art = None
+    try: art = GetImage(item['poster'])
+    except: pass 
+    
+    return DirectoryObject(
+        key = Callback(Videos, title = title, suffix = 'title_page;title=%s' % url),
+        title = title,
+        summary = summary,
+        thumb = thumb,
+        art = art
+    )
+
+####################################################################################################
+def GetImage(url):
+
+    if url:
+        return url.replace('{format}','extralarge')
+    else:
+        return None
