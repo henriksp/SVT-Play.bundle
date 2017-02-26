@@ -39,6 +39,14 @@ def MainMenu():
         )
     )
     
+    title = unicode('Populärt')
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'popular'),
+            title = title
+        )
+    )
+    
     title = unicode('Livesändningar')
     oc.add(
         DirectoryObject(
