@@ -26,7 +26,7 @@ def MainMenu():
     title = 'Senaste Nyhetsprogram'
     oc.add(
         DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'cluster_latest;cluster=nyheter'),
+            key = Callback(Videos, title = title, suffix = 'cluster_latest;cluster=nyheter', sort = 'by date'),
             title = title
         )
     )
@@ -34,7 +34,15 @@ def MainMenu():
     title = 'Senaste Program'
     oc.add(
         DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'latest'),
+            key = Callback(Videos, title = title, suffix = 'latest', option = 'only vod', sort = 'by date'),
+            title = title
+        )
+    )
+    
+    title = unicode('Livesändningar')
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'latest', option = 'only live'),
             title = title
         )
     )
@@ -111,7 +119,7 @@ def Search(query):
 
 ####################################################################################################
 @route(PREFIX + '/videos')
-def Videos(title, suffix):
+def Videos(title, suffix, option = 'all videos', sort = 'by season'):
 
     oc = ObjectContainer(title2=unicode(title))
 
@@ -123,24 +131,34 @@ def Videos(title, suffix):
         json_data = json_data['relatedVideos']['episodes']
     
     for item in json_data:
-        episode = EpisodeObjectFromItem(item)
+        episode = EpisodeObjectFromItem(item, option)
         
         if episode:
             oc.add(episode)
 
-    seasons = {}
-    for obj in oc.objects:
-        if obj.season not in seasons:
-            seasons[obj.season] = []
+    if sort == 'by season':
+        seasons = {}
+        for obj in oc.objects:
+            if obj.season not in seasons:
+                seasons[obj.season] = []
+                
+            seasons[obj.season].append(obj)
+        
+        for season in seasons:
+            seasons[season] = sorted(seasons[season], key=seasons[season].index, reverse=True)
             
-        seasons[obj.season].append(obj)
+        oc = ObjectContainer(title2=unicode(title))
+        for season in seasons:
+            for episode in seasons[season]:
+                oc.add(episode)
     
-    sorted_oc = ObjectContainer(title2=unicode(title))
-    for season in seasons:
-        for episode in seasons[season]:
-            sorted_oc.add(episode)
+    else:
+        oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
-    return sorted_oc
+    if len(oc) < 1:
+        return ObjectContainer(header=unicode('Inga program funna'), message=unicode('Kunde inte hitta några program'))
+
+    return oc
 
 ####################################################################################################
 @route(PREFIX + '/channels')
@@ -156,15 +174,26 @@ def Channels(title):
             url = BASE_URL + '/kanaler/%s' % item['title']
         except: 
             continue
-            
+        
+        try: title = title + ' - ' + unicode(item['schedule'][0]['title'])
+        except: pass
+        
+        try: summary = unicode(item['schedule'][0]['description'])
+        except: summary = None
+        
         try: thumb = 'http://www.svtplay.se/public/images/channels/posters/%s.png' % item['title'] 
         except: thumb = None
+        
+        try: art = item['schedule'][0]['titlePage']['thumbnailLarge']
+        except: art = None
         
         oc.add(
             VideoClipObject(
                 url = url,
                 title = title,
-                thumb = thumb
+                thumb = thumb,
+                summary = summary,
+                art = art
             )
         )
     
@@ -237,16 +266,30 @@ def Programs(title, suffix):
     return oc
 
 ####################################################################################################
-def EpisodeObjectFromItem(item):
+def EpisodeObjectFromItem(item, option = 'all videos'):
 
     try:
         title = unicode(item['title'])
+
+        if 'programTitle' in item:
+            title = unicode(item['programTitle']) + ' - ' + title
+
         url = BASE_URL + item['contentUrl'] if 'contentUrl' in item else BASE_URL + item['url']
         
         if not '/video' in url:
             return None
     except:
         return None
+    
+    if option != 'all videos':
+        try:
+            if item['broadcastedNow'] and option == 'only vod':
+                return None
+            
+            elif option == 'only live' and not item['broadcastedNow']:
+                return None
+        except:
+            pass
     
     thumb = None
     if 'thumbnail' in item:
