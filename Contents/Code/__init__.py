@@ -106,7 +106,7 @@ def Search(query):
 
     oc = ObjectContainer(title2='Resultat')
     
-    json_data = JSON.ObjectFromURL(API_URL + 'search_page;q=%s' % unicode(String.Quote(query)))
+    json_data = JSON.ObjectFromURL(API_URL + 'search?q=%s' % unicode(String.Quote(query)))
     
     for item in json_data['titles']:
         do = DirectoryObjectFromItem(item)
