@@ -63,6 +63,14 @@ def MainMenu():
         )
     )
 
+    title = 'Sista Chansen'
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'last_chance'),
+            title = title
+        )
+    )
+
     title = 'Kanaler'
     oc.add(
         DirectoryObject(
