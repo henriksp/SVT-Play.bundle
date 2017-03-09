@@ -63,6 +63,14 @@ def MainMenu():
         )
     )
 
+    title = 'Sista Chansen'
+    oc.add(
+        DirectoryObject(
+            key = Callback(Videos, title = title, suffix = 'last_chance'),
+            title = title
+        )
+    )
+
     title = 'Kanaler'
     oc.add(
         DirectoryObject(
@@ -106,7 +114,7 @@ def Search(query):
 
     oc = ObjectContainer(title2='Resultat')
     
-    json_data = JSON.ObjectFromURL(API_URL + 'search_page;q=%s' % unicode(String.Quote(query)))
+    json_data = JSON.ObjectFromURL(API_URL + 'search?q=%s' % unicode(String.Quote(query)))
     
     for item in json_data['titles']:
         do = DirectoryObjectFromItem(item)
@@ -127,11 +135,15 @@ def Search(query):
 
 ####################################################################################################
 @route(PREFIX + '/videos')
-def Videos(title, suffix, option = 'all videos', sort = 'by season'):
+def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by season'):
 
     oc = ObjectContainer(title2=unicode(title))
 
-    json_data = JSON.ObjectFromURL(API_URL + suffix)
+    if suffix:
+        json_data = JSON.ObjectFromURL(API_URL + suffix)
+    else:
+        title_data = JSON.ObjectFromURL(API_URL + 'title?slug=%s' % slug.replace("/", ""))
+        json_data = JSON.ObjectFromURL(API_URL + 'title_episodes_by_article_id?articleId=%s' % title_data['articleId'])
     
     if 'data' in json_data:
         json_data = json_data['data']
@@ -345,12 +357,20 @@ def EpisodeObjectFromItem(item, option = 'all videos'):
 ####################################################################################################
 def DirectoryObjectFromItem(item):
 
+    title_id = None
+    slug = None
+
     try:
         title = unicode(item['programTitle']) if 'programTitle' in item else unicode(item['title'])
         url = item['contentUrl'] if 'contentUrl' in item else item['url']
         
         if '/video' in url:
             return None
+
+        if 'articleId' in item:
+            title_id = item['articleId']
+        else:
+            slug = url
 
     except: return None
     
@@ -374,8 +394,12 @@ def DirectoryObjectFromItem(item):
     try: art = GetImage(item['poster'])
     except: pass 
     
+    suffix = None
+    if title_id:
+        suffix = 'title_episodes_by_article_id?articleId=%s' % title_id
+
     return DirectoryObject(
-        key = Callback(Videos, title = title, suffix = 'title_page;title=%s' % url),
+        key = Callback(Videos, title = title, suffix = suffix, slug = slug),
         title = title,
         summary = summary,
         thumb = thumb,
