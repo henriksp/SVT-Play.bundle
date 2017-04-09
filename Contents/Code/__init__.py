@@ -186,34 +186,39 @@ def Channels(title):
 
     oc = ObjectContainer(title2=unicode(title))
 
-    json_data = JSON.ObjectFromURL(API_URL + 'channel_page')
+    json_data = JSON.ObjectFromURL(API_URL + 'channel_page?now=%s' % Datetime.Now())
     
-    for item in json_data['channels']:
+    for item in json_data['hits']:
         try: 
-            title = unicode(item['name'])
-            url = BASE_URL + '/kanaler/%s' % item['title']
+            channel = item['channel'].replace('SVTK', 'Kunskapskanalen').replace('SVTB', 'Barnkanalen')
+            title = unicode(channel)
+            url = BASE_URL + '/kanaler/%s' % channel.lower()
         except: 
             continue
         
-        try: title = title + ' - ' + unicode(item['schedule'][0]['title'])
+        try: title = title + ' - ' + unicode(item['episodeTitle'])
         except: pass
         
-        try: summary = unicode(item['schedule'][0]['description'])
+        try: show = unicode(item['programmeTitle'])
+        except: show = None
+        
+        try: summary = unicode(item['longDescription'])
         except: summary = None
         
-        try: thumb = 'http://www.svtplay.se/public/images/channels/posters/%s.png' % item['title'] 
+        try: thumb = 'http://www.svtplay.se/public/images/channels/posters/%s.png' % channel.lower() 
         except: thumb = None
         
-        try: art = item['schedule'][0]['titlePage']['thumbnailLarge']
-        except: art = None
+        try: season = item['season']
+        except: season = None
         
         oc.add(
-            VideoClipObject(
+            EpisodeObject(
                 url = url,
                 title = title,
                 thumb = thumb,
                 summary = summary,
-                art = art
+                season = season,
+                show = show
             )
         )
     
