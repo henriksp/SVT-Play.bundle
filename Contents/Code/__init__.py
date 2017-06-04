@@ -232,7 +232,7 @@ def Categories(title):
 
     oc = ObjectContainer(title2=unicode(title))
     
-    json_data = JSON.ObjectFromURL(API_URL + 'active_clusters')
+    json_data = JSON.ObjectFromURL(API_URL + 'clusters')
     
     for item in json_data:
         try: 
