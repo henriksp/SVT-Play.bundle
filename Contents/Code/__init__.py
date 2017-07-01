@@ -116,17 +116,19 @@ def Search(query):
     
     json_data = JSON.ObjectFromURL(API_URL + 'search?q=%s' % unicode(String.Quote(query)))
     
-    for item in json_data['titles']:
-        do = DirectoryObjectFromItem(item)
+    for item in json_data['videosAndTitles']:
+
+        if item['contentType'] == "titel":
+            do = DirectoryObjectFromItem(item)
         
-        if do:
-            oc.add(do)
+            if do:
+                oc.add(do)
             
-    for item in json_data['episodes']:
-        episode = EpisodeObjectFromItem(item)
+        elif item['contentType'] == "videoEpisod":
+            episode = EpisodeObjectFromItem(item)
         
-        if episode:
-            oc.add(episode)
+            if episode:
+                oc.add(episode)
     
     if len(oc) < 1:
         return ObjectContainer(header=unicode('Resultat'), message=unicode('Kunde inte hitta något för: ') + unicode(query))
