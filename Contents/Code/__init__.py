@@ -141,11 +141,21 @@ def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by 
 
     oc = ObjectContainer(title2=unicode(title))
 
+    request_url = ''
+
     if suffix:
-        json_data = JSON.ObjectFromURL(API_URL + suffix)
+        request_url = API_URL + suffix
     else:
         title_data = JSON.ObjectFromURL(API_URL + 'title?slug=%s' % slug.replace("/", ""))
-        json_data = JSON.ObjectFromURL(API_URL + 'title_episodes_by_article_id?articleId=%s' % title_data['articleId'])
+        request_url = API_URL + 'title_episodes_by_article_id?articleId=%s' % title_data['articleId']
+
+    if '?' in request_url:
+        request_url = request_url + '&'
+    else:
+        request_url = request_url + '?'
+
+    request_url = request_url + 'excludedTagsString=lokalt'
+    json_data = JSON.ObjectFromURL(request_url)
     
     if 'data' in json_data:
         json_data = json_data['data']
