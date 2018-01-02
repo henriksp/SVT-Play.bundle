@@ -169,21 +169,7 @@ def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by 
             oc.add(episode)
 
     if sort == 'by season':
-        seasons = {}
-        for obj in oc.objects:
-            if obj.season not in seasons:
-                seasons[obj.season] = []
-                
-            seasons[obj.season].append(obj)
-        
-        for season in seasons:
-            seasons[season] = sorted(seasons[season], key=seasons[season].index, reverse=True)
-            
-        oc = ObjectContainer(title2=unicode(title))
-        for season in seasons:
-            for episode in seasons[season]:
-                oc.add(episode)
-    
+        oc.objects.sort(key = lambda obj: (obj.season, obj.index), reverse=False)
     else:
         oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
