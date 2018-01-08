@@ -23,18 +23,10 @@ def MainMenu():
 
     oc = ObjectContainer()
 
-    title = 'Senaste Nyhetsprogram'
-    oc.add(
-        DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'cluster_latest;cluster=nyheter', sort = 'by date'),
-            title = title
-        )
-    )
-
     title = 'Senaste Program'
     oc.add(
         DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'latest', option = 'only vod', sort = 'by date'),
+            key = Callback(Videos, title = title, suffix = 'latest', option = 'only vod'),
             title = title
         )
     )
@@ -137,7 +129,7 @@ def Search(query):
 
 ####################################################################################################
 @route(PREFIX + '/videos')
-def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by season'):
+def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'none'):
 
     oc = ObjectContainer(title2=unicode(title))
 
@@ -170,8 +162,6 @@ def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by 
 
     if sort == 'by season':
         oc.objects.sort(key = lambda obj: (obj.season, obj.index), reverse=False)
-    else:
-        oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
     if len(oc) < 1:
         return ObjectContainer(header=unicode('Inga program funna'), message=unicode('Kunde inte hitta några program'))
@@ -402,7 +392,7 @@ def DirectoryObjectFromItem(item):
         suffix = 'title_episodes_by_article_id?articleId=%s' % title_id
 
     return DirectoryObject(
-        key = Callback(Videos, title = title, suffix = suffix, slug = slug),
+        key = Callback(Videos, title = title, suffix = suffix, slug = slug, sort = 'by season'),
         title = title,
         summary = summary,
         thumb = thumb,
