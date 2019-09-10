@@ -23,18 +23,10 @@ def MainMenu():
 
     oc = ObjectContainer()
 
-    title = 'Senaste Nyhetsprogram'
-    oc.add(
-        DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'cluster_latest;cluster=nyheter', sort = 'by date'),
-            title = title
-        )
-    )
-
     title = 'Senaste Program'
     oc.add(
         DirectoryObject(
-            key = Callback(Videos, title = title, suffix = 'latest', option = 'only vod', sort = 'by date'),
+            key = Callback(Videos, title = title, suffix = 'latest', option = 'only vod'),
             title = title
         )
     )
@@ -137,15 +129,25 @@ def Search(query):
 
 ####################################################################################################
 @route(PREFIX + '/videos')
-def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by season'):
+def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'none'):
 
     oc = ObjectContainer(title2=unicode(title))
 
+    request_url = ''
+
     if suffix:
-        json_data = JSON.ObjectFromURL(API_URL + suffix)
+        request_url = API_URL + suffix
     else:
         title_data = JSON.ObjectFromURL(API_URL + 'title?slug=%s' % slug.replace("/", ""))
-        json_data = JSON.ObjectFromURL(API_URL + 'title_episodes_by_article_id?articleId=%s' % title_data['articleId'])
+        request_url = API_URL + 'title_episodes_by_article_id?articleId=%s' % title_data['articleId']
+
+    if '?' in request_url:
+        request_url = request_url + '&'
+    else:
+        request_url = request_url + '?'
+
+    request_url = request_url + 'excludedTagsString=lokalt'
+    json_data = JSON.ObjectFromURL(request_url)
     
     if 'data' in json_data:
         json_data = json_data['data']
@@ -159,23 +161,7 @@ def Videos(title, suffix = None, slug = None, option = 'all videos', sort = 'by 
             oc.add(episode)
 
     if sort == 'by season':
-        seasons = {}
-        for obj in oc.objects:
-            if obj.season not in seasons:
-                seasons[obj.season] = []
-                
-            seasons[obj.season].append(obj)
-        
-        for season in seasons:
-            seasons[season] = sorted(seasons[season], key=seasons[season].index, reverse=True)
-            
-        oc = ObjectContainer(title2=unicode(title))
-        for season in seasons:
-            for episode in seasons[season]:
-                oc.add(episode)
-    
-    else:
-        oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+        oc.objects.sort(key = lambda obj: (obj.season, obj.index), reverse=False)
 
     if len(oc) < 1:
         return ObjectContainer(header=unicode('Inga program funna'), message=unicode('Kunde inte hitta några program'))
@@ -406,7 +392,7 @@ def DirectoryObjectFromItem(item):
         suffix = 'title_episodes_by_article_id?articleId=%s' % title_id
 
     return DirectoryObject(
-        key = Callback(Videos, title = title, suffix = suffix, slug = slug),
+        key = Callback(Videos, title = title, suffix = suffix, slug = slug, sort = 'by season'),
         title = title,
         summary = summary,
         thumb = thumb,
